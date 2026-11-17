@@ -10,7 +10,6 @@ import SwiftUI
 /// Bottom taskbar: "dotdot" start button (menu), task field with the track title, clock.
 struct PixelTaskbar: View {
     @Environment(PlayerModel.self) private var player
-    @AppStorage(PlayerSkin.storageKey) private var skin: PlayerSkin = .pixelDesktop
     @Binding var isImporting: Bool
     @Binding var isShowingDebug: Bool
 
@@ -55,12 +54,7 @@ struct PixelTaskbar: View {
 
     private var startMenu: some View {
         Menu {
-            Button("Open music…", systemImage: "folder") { isImporting = true }
-            Picker("Skin", selection: $skin) {
-                ForEach(PlayerSkin.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.menu)
-            Button("Debug panel", systemImage: "ladybug") { isShowingDebug = true }
+            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
         } label: {
             Text("dotdot")
                 .font(.pixelify(15, semibold: true))

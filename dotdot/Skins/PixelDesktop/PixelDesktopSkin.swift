@@ -26,8 +26,7 @@ struct PixelDesktopSkin: View {
         }
         .background(PixelPalette.desktop.ignoresSafeArea())
         .foregroundStyle(.black)
-        .musicImporter(isPresented: $isImporting, showsErrors: !isShowingDebug)
-        .sheet(isPresented: $isShowingDebug) { PlayerDebugView() }
+        .skinChrome(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
     }
 
     // MARK: - Window

@@ -31,4 +31,16 @@ extension Font {
     static func vt323(_ size: CGFloat) -> Font {
         .custom("VT323-Regular", fixedSize: size)
     }
+
+    static func shareTechMono(_ size: CGFloat) -> Font {
+        .custom("ShareTechMono-Regular", fixedSize: size)
+    }
+
+    static func spaceMono(_ size: CGFloat, bold: Bool = false) -> Font {
+        .custom(bold ? "SpaceMono-Bold" : "SpaceMono-Regular", fixedSize: size)
+    }
+
+    static func yellowtail(_ size: CGFloat) -> Font {
+        .custom("Yellowtail-Regular", fixedSize: size)
+    }
 }

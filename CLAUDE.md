@@ -58,7 +58,13 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
   `AppFonts.register()` (CTFontManager), not via Info.plist, because the Info.plist is generated.
   Use `Font.pixelify(_:semibold:)` / `Font.vt323(_:)`; add new fonts the same way.
 - Shared Win98 pieces (bevels, palette) live in `Skins/PixelDesktop/`; cross-skin helpers
-  (`Haptics`, `musicImporter`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
+  (`Haptics`, `SkinMenuItems` + `.skinChrome`, `FlowLayout`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
+- Every skin must expose the dotdot menu (open music, skin picker, debug panel), since the
+  mockups have no other navigation: pixelDesktop = taskbar "dotdot" button,
+  codeRain = now_playing card, cobaltDots = "dotdot" logo.
+- `design/` is git-ignored (mockups are kept locally only).
+- Simulator check of a specific skin: `xcrun simctl launch <device> com.maral.dotdot -selectedSkin codeRain`
+  (launch argument overrides @AppStorage).
 
 ## Milestones
 1. AudioEngine + PlayerModel + file import + presets + debug screen

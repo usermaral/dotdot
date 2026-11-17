@@ -19,22 +19,3 @@ struct SkinHost: View {
         }
     }
 }
-
-/// Temporary stand-in until each skin is built from its HTML mockup.
-struct SkinPlaceholder: View {
-    let title: String
-    @Environment(PlayerModel.self) private var player
-    @AppStorage(PlayerSkin.storageKey) private var skin: PlayerSkin = .pixelDesktop
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text(title).font(.title2.bold())
-            Text(player.currentTrack?.title ?? "No track")
-            Button(player.isPlaying ? "Pause" : "Play") { player.togglePlayPause() }
-            Picker("Skin", selection: $skin) {
-                ForEach(PlayerSkin.allCases) { Text($0.title).tag($0) }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
