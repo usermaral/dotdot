@@ -15,12 +15,17 @@ struct SkinMenuItems: View {
     @Binding var isShowingDebug: Bool
 
     var body: some View {
-        Button("Open music…", systemImage: "folder") { isImporting = true }
-        Picker("Skin", selection: $skin) {
-            ForEach(PlayerSkin.allCases) { Text($0.title).tag($0) }
+        // Skins listed directly in the menu (checkmark on the current one), not in a submenu.
+        Section("Skin") {
+            Picker("Skin", selection: $skin) {
+                ForEach(PlayerSkin.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.inline)
         }
-        .pickerStyle(.menu)
-        Button("Debug panel", systemImage: "ladybug") { isShowingDebug = true }
+        Section {
+            Button("Open music…", systemImage: "folder") { isImporting = true }
+            Button("Debug panel", systemImage: "ladybug") { isShowingDebug = true }
+        }
     }
 }
 

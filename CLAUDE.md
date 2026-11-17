@@ -26,7 +26,7 @@ xcodebuild -project dotdot.xcodeproj -scheme dotdot -destination 'platform=iOS S
 List simulators with `xcrun simctl list devices available`. No test target or linters yet; once tests exist, run one with `xcodebuild test ... -only-testing:<Target>/<Class>/<method>`.
 
 ## Project configuration that affects code
-- **Deployment target in the project is iOS 26.2** (spec says iOS 17+; lower `IPHONEOS_DEPLOYMENT_TARGET` if 17 is required). iPhone + iPad.
+- **Deployment target: iOS 17.0** (built with the iOS 26 SDK). Don't use APIs newer than iOS 17 without `#available`; verify on the iOS 17 simulator (iPhone 15 Pro). iPhone + iPad.
 - **Swift 5 mode with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`** and approachable concurrency: every type is implicitly `@MainActor`. Mark audio-thread / DSP code (tap callbacks, FFT, `AudioEngine` internals) `nonisolated` explicitly, and hop to main only to publish `bands`.
 - **File-system-synchronized groups**: any file under `dotdot/` joins the target automatically. Create folders/files on disk; don't edit `project.pbxproj` for sources.
 
@@ -61,10 +61,11 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
   (`Haptics`, `SkinMenuItems` + `.skinChrome`, `FlowLayout`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
 - Every skin must expose the dotdot menu (open music, skin picker, debug panel), since the
   mockups have no other navigation: pixelDesktop = taskbar "dotdot" button,
-  codeRain = now_playing card, cobaltDots = "dotdot" logo.
+  codeRain = "> menu" button (top right) + now_playing card, cobaltDots = "•••" button + logo.
 - `design/` is git-ignored (mockups are kept locally only).
 - Simulator check of a specific skin: `xcrun simctl launch <device> com.maral.dotdot -selectedSkin codeRain`
-  (launch argument overrides @AppStorage).
+  (launch argument overrides @AppStorage). Caveat: while launched this way the skin is pinned and
+  the in-app skin picker appears broken; relaunch without the argument before testing switching.
 
 ## Milestones
 1. AudioEngine + PlayerModel + file import + presets + debug screen

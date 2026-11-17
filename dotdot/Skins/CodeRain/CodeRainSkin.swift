@@ -40,6 +40,30 @@ struct CodeRainSkin: View {
                     .padding(.horizontal, 22)
                     .padding(.bottom, 22)
             }
+            .overlay(alignment: .topTrailing) {
+                menuButton
+                    .padding(.trailing, 22)
+                    .padding(.top, 8)
+            }
+    }
+
+    /// Visible way into the dotdot menu (skins, music, debug).
+    private var menuButton: some View {
+        Menu {
+            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        } label: {
+            Text("> menu")
+                .font(.shareTechMono(13))
+                .foregroundStyle(CodeRainPalette.green)
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .background(CodeRainPalette.background)
+                .overlay(Rectangle().strokeBorder(CodeRainPalette.green, lineWidth: 1))
+                .padding(.vertical, 7) // 44 pt touch target
+                .contentShape(Rectangle())
+        }
+        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        .accessibilityLabel("Menu: skins and music")
     }
 
     private var nowPlayingCard: some View {

@@ -81,7 +81,28 @@ struct CobaltDotsSkin: View {
                 .padding(.vertical, 4)
                 .padding(.horizontal, 10)
                 .overlay(Capsule().strokeBorder(CobaltPalette.cobalt, lineWidth: 1.5))
+            menuButton
         }
+    }
+
+    /// Visible way into the dotdot menu: a round "•••" button in the sticker style.
+    private var menuButton: some View {
+        Menu {
+            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        } label: {
+            HStack(spacing: 3) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Circle().fill(CobaltPalette.cobalt).frame(width: 4, height: 4)
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(Circle().fill(CobaltPalette.background))
+            .overlay(Circle().strokeBorder(CobaltPalette.cobalt, lineWidth: 1.5))
+            .frame(width: 44, height: 44) // touch target
+            .contentShape(Rectangle())
+        }
+        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        .accessibilityLabel("Menu: skins and music")
     }
 
     private var trackInfo: some View {
@@ -99,7 +120,7 @@ struct CobaltDotsSkin: View {
 
     private var subtitle: String {
         let fx = player.preset?.stickerLabel ?? "NO FX"
-        guard let track = player.currentTrack else { return "tap dotdot to open music · \(fx)" }
+        guard let track = player.currentTrack else { return "open music from ••• · \(fx)" }
         return "\(track.url.lastPathComponent) · \(fx)"
     }
 
