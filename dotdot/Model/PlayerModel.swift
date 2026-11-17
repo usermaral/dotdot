@@ -12,6 +12,8 @@ import Observation
 @Observable
 final class PlayerModel {
     static let bandCount = 16
+    private static let attack: Float = 0.55
+    private static let release: Float = 0.12
 
     private(set) var tracks: [Track] = []
     private(set) var currentTrack: Track?
@@ -19,12 +21,12 @@ final class PlayerModel {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var preset: AudioPreset?
-    /// 16 spectrum bands, 0...1. Filled by the FFT analyzer (milestone 2).
+    /// 16 spectrum bands, 0...1, smoothed, updated ~60 times/sec while playing.
     private(set) var bands = [Float](repeating: 0, count: PlayerModel.bandCount)
     var errorMessage: String?
 
     @ObservationIgnored private let engine: AudioEngine
-    @ObservationIgnored private var progressTask: Task<Void, Never>?
+    @ObservationIgnored private var displayTask: Task<Void, Never>?
 
     init() {
         Self.configureAudioSession()
@@ -80,7 +82,7 @@ final class PlayerModel {
         do {
             try engine.play()
             syncState()
-            startProgressUpdates()
+            startDisplayLoop()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -88,8 +90,7 @@ final class PlayerModel {
 
     func pause() {
         engine.pause()
-        stopProgressUpdates()
-        syncState()
+        syncState() // display loop keeps running until the bars have fallen
     }
 
     func seek(to time: TimeInterval) {
@@ -120,7 +121,6 @@ final class PlayerModel {
     }
 
     private func trackFinished() {
-        stopProgressUpdates()
         syncState()
         if tracks.count > 1 {
             next()
@@ -132,23 +132,32 @@ final class PlayerModel {
         isPlaying = engine.isPlaying
         currentTime = engine.currentTime
         duration = engine.duration
-        if !isPlaying { bands = bands.map { _ in 0 } }
     }
 
-    private func startProgressUpdates() {
-        progressTask?.cancel()
-        progressTask = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                self.currentTime = self.engine.currentTime
-                try? await Task.sleep(for: .milliseconds(33))
+    /// ~60 fps loop: playback time + smoothed spectrum. Stops itself once paused and silent.
+    private func startDisplayLoop() {
+        guard displayTask == nil else { return }
+        displayTask = Task { [weak self] in
+            while let self, !Task.isCancelled, self.tick() {
+                try? await Task.sleep(for: .milliseconds(16))
             }
+            self?.displayTask = nil
         }
     }
 
-    private func stopProgressUpdates() {
-        progressTask?.cancel()
-        progressTask = nil
+    /// Returns false when there is nothing left to animate.
+    private func tick() -> Bool {
+        currentTime = engine.currentTime
+        let target = engine.spectrum
+        var smoothed = bands
+        for i in smoothed.indices {
+            // Fast attack, slow release: punchy but readable bars.
+            let k: Float = target[i] > smoothed[i] ? Self.attack : Self.release
+            smoothed[i] += (target[i] - smoothed[i]) * k
+        }
+        let isSilent = smoothed.allSatisfy { $0 < 0.002 }
+        bands = isSilent && !isPlaying ? [Float](repeating: 0, count: Self.bandCount) : smoothed
+        return isPlaying || !isSilent
     }
 
     private static func configureAudioSession() {

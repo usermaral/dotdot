@@ -19,6 +19,7 @@ struct PlayerDebugView: View {
         NavigationStack {
             List {
                 nowPlayingSection
+                spectrumSection
                 presetSection
                 librarySection
                 skinSection
@@ -72,6 +73,20 @@ struct PlayerDebugView: View {
             .font(.title2)
             .frame(maxWidth: .infinity)
             .disabled(player.tracks.isEmpty)
+        }
+    }
+
+    private var spectrumSection: some View {
+        Section("Spectrum (\(PlayerModel.bandCount) bands)") {
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(player.bands.indices, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.tint)
+                        .frame(height: max(2, CGFloat(player.bands[index]) * 80))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 80, alignment: .bottom)
         }
     }
 

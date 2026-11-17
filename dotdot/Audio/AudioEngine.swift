@@ -38,6 +38,7 @@ final class AudioEngine {
     private let environment = AVAudioEnvironmentNode()
 
     private let graphFormat: AVAudioFormat
+    private let analyzer: SpectrumAnalyzer
     private let hissBuffer: AVAudioPCMBuffer?
     private let crackleBuffer: AVAudioPCMBuffer?
     private var fxBuffer: AVAudioPCMBuffer?
@@ -54,6 +55,7 @@ final class AudioEngine {
         graphFormat = AVAudioFormat(standardFormatWithSampleRate: outputRate > 0 ? outputRate : 48_000, channels: 2)!
         hissBuffer = NoiseBuffers.hiss(format: graphFormat)
         crackleBuffer = NoiseBuffers.crackle(format: graphFormat)
+        analyzer = SpectrumAnalyzer(sampleRate: graphFormat.sampleRate, bandCount: PlayerModel.bandCount)
 
         [player, fxPlayer, inputMixer, varispeed, reverb, eq, spatialMixer, environment].forEach(engine.attach)
         engine.connect(player, to: inputMixer, format: graphFormat)
@@ -71,7 +73,18 @@ final class AudioEngine {
         environment.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
         environment.distanceAttenuationParameters.referenceDistance = 5 // no level drop inside the orbit
 
+        // Spectrum is measured after all music effects, before the hiss/crackle layer.
+        let analyzer = analyzer
+        environment.installTap(onBus: 0, bufferSize: 1024, format: graphFormat) { @Sendable buffer, _ in
+            analyzer.process(buffer)
+        }
+
         apply(preset: nil)
+    }
+
+    /// Latest spectrum levels (0...1), unsmoothed.
+    var spectrum: [Float] {
+        isPlaying ? analyzer.currentBands() : [Float](repeating: 0, count: analyzer.bandCount)
     }
 
     // MARK: - Time
