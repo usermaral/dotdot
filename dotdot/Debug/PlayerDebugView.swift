@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Bare-bones screen to exercise import, transport and presets. Not part of the shipped UI.
 struct PlayerDebugView: View {
@@ -28,17 +27,7 @@ struct PlayerDebugView: View {
             .toolbar {
                 Button("Import", systemImage: "plus") { isImporting = true }
             }
-            .fileImporter(isPresented: $isImporting, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
-                switch result {
-                case .success(let urls): Task { await player.importFiles(urls) }
-                case .failure(let error): player.errorMessage = error.localizedDescription
-                }
-            }
-            .alert("Error", isPresented: errorBinding) {
-                Button("OK") {}
-            } message: {
-                Text(player.errorMessage ?? "")
-            }
+            .musicImporter(isPresented: $isImporting)
         }
     }
 
@@ -130,9 +119,5 @@ struct PlayerDebugView: View {
             }
             NavigationLink("Open skin preview") { SkinHost() }
         }
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(get: { player.errorMessage != nil }, set: { if !$0 { player.errorMessage = nil } })
     }
 }

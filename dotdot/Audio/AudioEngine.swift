@@ -82,6 +82,12 @@ final class AudioEngine {
         apply(preset: nil)
     }
 
+    /// Master output volume, 0...1.
+    var volume: Float {
+        get { engine.mainMixerNode.outputVolume }
+        set { engine.mainMixerNode.outputVolume = min(max(newValue, 0), 1) }
+    }
+
     /// Latest spectrum levels (0...1), unsmoothed.
     var spectrum: [Float] {
         isPlaying ? analyzer.currentBands() : [Float](repeating: 0, count: analyzer.bandCount)

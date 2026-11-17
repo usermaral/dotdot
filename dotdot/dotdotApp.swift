@@ -11,10 +11,13 @@ import SwiftUI
 struct dotdotApp: App {
     @State private var player = PlayerModel()
 
+    init() {
+        AppFonts.register()
+    }
+
     var body: some Scene {
         WindowGroup {
-            // Milestone 1: debug screen is the root. Switch to SkinHost once skins exist.
-            PlayerDebugView()
+            SkinHost()
                 .environment(player)
         }
     }

@@ -54,8 +54,11 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
   grid pulsing to bass, sticker doodles, tilted preset tags. Fonts: Yellowtail, Space Mono.
 - `design/skin-code-rain.html`: black + green hex digital rain, column tail
   length/speed driven by band levels, terminal-style presets. Font: Share Tech Mono.
-- Fonts: bundle .ttf files from Google Fonts and register them in Info.plist
-  (`GENERATE_INFOPLIST_FILE` is on, so add `UIAppFonts` via build settings or a partial Info.plist).
+- Fonts: Google Fonts .ttf files live in `dotdot/Resources/Fonts/` and are registered at launch by
+  `AppFonts.register()` (CTFontManager), not via Info.plist, because the Info.plist is generated.
+  Use `Font.pixelify(_:semibold:)` / `Font.vt323(_:)`; add new fonts the same way.
+- Shared Win98 pieces (bevels, palette) live in `Skins/PixelDesktop/`; cross-skin helpers
+  (`Haptics`, `musicImporter`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
 
 ## Milestones
 1. AudioEngine + PlayerModel + file import + presets + debug screen

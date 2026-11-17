@@ -21,6 +21,10 @@ final class PlayerModel {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var preset: AudioPreset?
+    /// Master volume, 0...1.
+    private(set) var volume: Float = 1
+    /// Average bitrate of the current file, if known.
+    private(set) var bitrateKbps: Int?
     /// 16 spectrum bands, 0...1, smoothed, updated ~60 times/sec while playing.
     private(set) var bands = [Float](repeating: 0, count: PlayerModel.bandCount)
     var errorMessage: String?
@@ -37,6 +41,11 @@ final class PlayerModel {
 
     var progress: Double {
         duration > 0 ? currentTime / duration : 0
+    }
+
+    /// 1-based position of the current track in the library.
+    var trackNumber: Int? {
+        currentIndex.map { $0 + 1 }
     }
 
     // MARK: - Library
@@ -98,6 +107,11 @@ final class PlayerModel {
         syncState()
     }
 
+    func changeVolume(by delta: Float) {
+        engine.volume = volume + delta
+        volume = engine.volume
+    }
+
     func setPreset(_ preset: AudioPreset?) {
         engine.apply(preset: preset)
         self.preset = engine.preset
@@ -114,6 +128,7 @@ final class PlayerModel {
             try engine.load(url: track.url)
             currentTrack = track
             syncState()
+            bitrateKbps = Self.bitrate(of: track, duration: duration)
             if autoplay { play() }
         } catch {
             errorMessage = "Cannot open \(track.title): \(error.localizedDescription)"
@@ -158,6 +173,12 @@ final class PlayerModel {
         let isSilent = smoothed.allSatisfy { $0 < 0.002 }
         bands = isSilent && !isPlaying ? [Float](repeating: 0, count: Self.bandCount) : smoothed
         return isPlaying || !isSilent
+    }
+
+    private static func bitrate(of track: Track, duration: TimeInterval) -> Int? {
+        guard duration > 0,
+              let size = try? track.url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return nil }
+        return Int((Double(size) * 8 / duration / 1000).rounded())
     }
 
     private static func configureAudioSession() {

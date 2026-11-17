@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Code rain player</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #000000; color: #00FF66; font-family: 'Share Tech Mono', monospace; display: flex; flex-direction: column">
+<div style="position: relative; height: 470px; padding-top: 44px; box-sizing: border-box; display: flex; justify-content: center; overflow: hidden">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="26">
+<div style="display: flex; flex-direction: column; width: 15px; align-items: center">
+<sc-for list="{{c.ch}}" as="k" hint-placeholder-count="26">
+<span style="font-size: 14px; line-height: 16px; height: 16px; color: {{k.c}}">{{k.s}}</span>
+</sc-for>
+</div>
+</sc-for>
+<div style="position: absolute; left: 22px; right: 22px; bottom: 22px; background: #000000; border: 1px solid #00FF66; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #00B347">&gt; now_playing --fx {{fx}}</span>
+<span style="font-size: 26px; color: #D8FFE0">Night Drive</span>
+<span style="font-size: 13px; color: #00B347">your_track.m4a</span>
+</div>
+</div>
+<div style="padding: 18px 22px 28px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 14px; letter-spacing: 1px">[{{bar}}]</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #00B347"><span>01:42</span><span>-02:31</span></div>
+</div>
+<div style="display: flex; align-items: center; justify-content: center; gap: 16px">
+<button aria-label="Previous" style="width: 64px; height: 52px; background: #000000; border: 1px solid #00FF66; color: #00FF66; font: 18px 'Share Tech Mono', monospace">&lt;&lt;</button>
+<button aria-label="Play" style="width: 104px; height: 52px; background: #00FF66; border: none; color: #000000; font: 20px 'Share Tech Mono', monospace">PLAY</button>
+<button aria-label="Next" style="width: 64px; height: 52px; background: #000000; border: 1px solid #00FF66; color: #00FF66; font: 18px 'Share Tech Mono', monospace">&gt;&gt;</button>
+</div>
+<div style="margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{presets}}" as="p" hint-placeholder-count="6">
+<button onClick="{{p.pick}}" style="height: 44px; background: {{p.bg}}; border: 1px solid #00B347; color: {{p.fg}}; font: 14px 'Share Tech Mono', monospace; text-align: left; padding: 0 10px">&gt; {{p.label}}</button>
+</sc-for>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+componentDidMount() { this.timer = setInterval(() => this.setState({ t: (this.state.t || 0) + 1 }), 90); }
+componentWillUnmount() { clearInterval(this.timer); }
+renderVals() {
+const n = this.state.t || 0, t = n * 0.09;
+const fx = this.state.fx || 'slowed';
+const hex = '0123456789ABCDEF', N = 26, R = 26, cols = [];
+for (let i = 0; i < N; i++) {
+const level = 0.3 + 0.7 * Math.abs(Math.sin(t * (1.3 + (i % 7) * 0.21) + i));
+const tail = Math.round(4 + level * 16);
+const speed = 0.35 + ((i * 37) % 10) / 20 + level * 0.4;
+const head = Math.floor(n * speed + i * 11) % (R + tail);
+const ch = [];
+for (let j = 0; j < R; j++) {
+const d = head - j;
+const s = hex[(i * 31 + j * 17 + Math.floor((n + i * 3) / 6)) % 16];
+let c = '#0B2A15';
+if (d === 0) c = '#D8FFE0'; else if (d > 0 && d < tail) c = d < tail * 0.35 ? '#00FF66' : d < tail * 0.7 ? '#00B347' : '#00602A';
+ch.push({ s, c });
+}
+cols.push({ ch });
+}
+const p = Math.round(((n % 300) / 300) * 24);
+const bar = '#'.repeat(p) + '.'.repeat(24 - p);
+const presets = ['slowed', 'tape', 'vinyl', 'sped_up', '8d', 'reverb'].map(l => ({ label: l, bg: l === fx ? '#00FF66' : '#000000', fg: l === fx ? '#000000' : '#00FF66', pick: () => this.setState({ fx: l }) }));
+return { cols, bar, presets, fx };
+}
+}
+</script>
+</body>
+</html>

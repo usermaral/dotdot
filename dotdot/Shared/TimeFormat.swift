@@ -14,4 +14,10 @@ nonisolated enum TimeFormat {
         let total = Int(seconds)
         return String(format: "%d:%02d", total / 60, total % 60)
     }
+
+    /// 01:42 style, zero-padded minutes for LCD displays.
+    static func lcd(_ seconds: TimeInterval) -> String {
+        let total = seconds.isFinite ? max(Int(seconds), 0) : 0
+        return String(format: "%02d:%02d", total / 60, total % 60)
+    }
 }
