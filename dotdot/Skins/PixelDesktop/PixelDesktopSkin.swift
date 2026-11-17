@@ -18,8 +18,8 @@ struct PixelDesktopSkin: View {
             ScrollView {
                 window
                     .padding(.horizontal, 14)
-                    .padding(.top, 8)
-                    .padding(.bottom, 14)
+                    .padding(.top, 2)
+                    .padding(.bottom, 8)
             }
             .scrollBounceBehavior(.basedOnSize)
             PixelTaskbar(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
@@ -33,14 +33,16 @@ struct PixelDesktopSkin: View {
 
     private var window: some View {
         VStack(spacing: 10) {
-            titleBar
+            VStack(spacing: 2) {
+                titleBar
+                PixelMenuBar(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+            }
             lcd.padding(.horizontal, 6)
             PixelProgressBar(progress: player.progress) { fraction in
                 player.seek(to: fraction * player.duration)
             }
             .padding(.horizontal, 6)
             PixelControlPad()
-                .padding(.vertical, 4)
             PixelPresetGroup()
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
@@ -99,7 +101,7 @@ struct PixelDesktopSkin: View {
     }
 
     private var marqueeText: String {
-        guard let track = player.currentTrack else { return "*** Open a track from the dotdot menu ***" }
+        guard let track = player.currentTrack else { return "*** Open a track from the File menu ***" }
         return "*** \(track.title) - \(track.url.lastPathComponent) ***"
     }
 

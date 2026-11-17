@@ -60,7 +60,7 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
 - Shared Win98 pieces (bevels, palette) live in `Skins/PixelDesktop/`; cross-skin helpers
   (`Haptics`, `SkinMenuItems` + `.skinChrome`, `FlowLayout`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
 - Every skin must expose the dotdot menu (open music, skin picker, debug panel), since the
-  mockups have no other navigation: pixelDesktop = taskbar "dotdot" button,
+  mockups have no other navigation: pixelDesktop = Win98 "File · Skin" menu bar + taskbar "dotdot" button,
   codeRain = "> menu" button (top right) + now_playing card, cobaltDots = "•••" button + logo.
 - `design/` is git-ignored (mockups are kept locally only).
 - Simulator check of a specific skin: `xcrun simctl launch <device> com.maral.dotdot -selectedSkin codeRain`
