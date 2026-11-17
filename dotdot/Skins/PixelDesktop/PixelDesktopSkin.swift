@@ -18,11 +18,11 @@ struct PixelDesktopSkin: View {
             ScrollView {
                 window
                     .padding(.horizontal, 14)
-                    .padding(.top, 2)
-                    .padding(.bottom, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, 14)
             }
             .scrollBounceBehavior(.basedOnSize)
-            PixelTaskbar(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+            PixelTaskbar()
         }
         .background(PixelPalette.desktop.ignoresSafeArea())
         .foregroundStyle(.black)
@@ -33,16 +33,14 @@ struct PixelDesktopSkin: View {
 
     private var window: some View {
         VStack(spacing: 10) {
-            VStack(spacing: 2) {
-                titleBar
-                PixelMenuBar(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-            }
+            titleBar
             lcd.padding(.horizontal, 6)
             PixelProgressBar(progress: player.progress) { fraction in
                 player.seek(to: fraction * player.duration)
             }
             .padding(.horizontal, 6)
             PixelControlPad()
+                .padding(.vertical, 4)
             PixelPresetGroup()
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
@@ -60,10 +58,7 @@ struct PixelDesktopSkin: View {
                 .font(.pixelify(15, semibold: true))
                 .lineLimit(1)
             Spacer(minLength: 8)
-            HStack(spacing: 3) {
-                titleButton("_")
-                titleButton("x")
-            }
+            menuButton
         }
         .foregroundStyle(.white)
         .padding(.leading, 8)
@@ -72,14 +67,23 @@ struct PixelDesktopSkin: View {
         .background(LinearGradient(colors: [PixelPalette.titleStart, PixelPalette.titleEnd], startPoint: .leading, endPoint: .trailing))
     }
 
-    /// Decorative caption buttons (the app has a single window).
-    private func titleButton(_ glyph: String) -> some View {
-        Text(glyph)
-            .font(.pixelify(12, semibold: true))
-            .foregroundStyle(.black)
-            .frame(width: 20, height: 18)
-            .win98Bevel(.raised, fill: PixelPalette.face)
-            .accessibilityHidden(true)
+    /// The skin's single menu (skins, music, debug), top right like in every skin.
+    /// Sits where the mockup's caption buttons were, in the same raised style.
+    private var menuButton: some View {
+        Menu {
+            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        } label: {
+            Text("Menu ▾")
+                .font(.pixelify(12, semibold: true))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 6)
+                .frame(height: 18)
+                .win98Bevel(.raised, fill: PixelPalette.face)
+                .frame(height: 30) // whole title bar height is tappable
+                .contentShape(Rectangle())
+        }
+        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        .accessibilityLabel("Menu: skins and music")
     }
 
     // MARK: - LCD
@@ -101,7 +105,7 @@ struct PixelDesktopSkin: View {
     }
 
     private var marqueeText: String {
-        guard let track = player.currentTrack else { return "*** Open a track from the File menu ***" }
+        guard let track = player.currentTrack else { return "*** Open a track from the Menu ***" }
         return "*** \(track.title) - \(track.url.lastPathComponent) ***"
     }
 

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// Built from design/skin-cobalt-dots.html. Tapping the "dotdot" logo opens the menu.
+/// Built from design/skin-cobalt-dots.html. The "•••" button (top right) opens the menu.
 struct CobaltDotsSkin: View {
     @Environment(PlayerModel.self) private var player
     @State private var isImporting = false
@@ -66,15 +66,6 @@ struct CobaltDotsSkin: View {
             Text("dotdot\u{00A0}")
                 .font(.yellowtail(36))
                 .foregroundStyle(CobaltPalette.cobalt)
-                .overlay {
-                    Menu {
-                        SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-                    } label: {
-                        Color.clear.contentShape(Rectangle())
-                    }
-                    .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
-                    .accessibilityLabel("dotdot menu")
-                }
             Spacer()
             Text(player.isPlaying ? "NOW PLAYING" : "PAUSED")
                 .font(.spaceMono(12, bold: true))

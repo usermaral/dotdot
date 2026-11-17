@@ -7,11 +7,10 @@
 
 import SwiftUI
 
-/// Bottom taskbar: "dotdot" start button (menu), task field with the track title, clock.
+/// Bottom taskbar: "dotdot" start button (decorative; the menu lives in the title bar),
+/// task field with the track title, clock.
 struct PixelTaskbar: View {
     @Environment(PlayerModel.self) private var player
-    @Binding var isImporting: Bool
-    @Binding var isShowingDebug: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -53,16 +52,12 @@ struct PixelTaskbar: View {
     }()
 
     private var startMenu: some View {
-        Menu {
-            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-        } label: {
-            Text("dotdot")
-                .font(.pixelify(15, semibold: true))
-                .foregroundStyle(.black)
-                .padding(.horizontal, 12)
-                .frame(height: 32)
-                .win98Bevel(.raised, fill: PixelPalette.face)
-        }
-        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        Text("dotdot")
+            .font(.pixelify(15, semibold: true))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .win98Bevel(.raised, fill: PixelPalette.face)
+            .accessibilityHidden(true)
     }
 }

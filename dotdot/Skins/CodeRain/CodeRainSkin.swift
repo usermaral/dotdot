@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Built from design/skin-code-rain.html: hex rain on top, terminal controls below.
-/// Tapping the now_playing card opens the dotdot menu (music, skins, debug).
+/// The "> menu" button (top right) opens the dotdot menu (skins, music, debug).
 struct CodeRainSkin: View {
     @Environment(PlayerModel.self) private var player
     @State private var isImporting = false
@@ -67,30 +67,24 @@ struct CodeRainSkin: View {
     }
 
     private var nowPlayingCard: some View {
-        Menu {
-            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("> now_playing --fx \(player.preset?.terminalLabel ?? "none")")
-                    .font(.shareTechMono(12))
-                    .foregroundStyle(CodeRainPalette.midGreen)
-                Text(player.currentTrack?.title ?? "no track")
-                    .font(.shareTechMono(26))
-                    .foregroundStyle(CodeRainPalette.head)
-                    .lineLimit(1)
-                Text(player.currentTrack?.url.lastPathComponent ?? "tap to open music")
-                    .font(.shareTechMono(13))
-                    .foregroundStyle(CodeRainPalette.midGreen)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .background(CodeRainPalette.background)
-            .overlay(Rectangle().strokeBorder(CodeRainPalette.green, lineWidth: 1))
-            .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 4) {
+            Text("> now_playing --fx \(player.preset?.terminalLabel ?? "none")")
+                .font(.shareTechMono(12))
+                .foregroundStyle(CodeRainPalette.midGreen)
+            Text(player.currentTrack?.title ?? "no track")
+                .font(.shareTechMono(26))
+                .foregroundStyle(CodeRainPalette.head)
+                .lineLimit(1)
+            Text(player.currentTrack?.url.lastPathComponent ?? "open music from > menu")
+                .font(.shareTechMono(13))
+                .foregroundStyle(CodeRainPalette.midGreen)
+                .lineLimit(1)
         }
-        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(CodeRainPalette.background)
+        .overlay(Rectangle().strokeBorder(CodeRainPalette.green, lineWidth: 1))
     }
 
     // MARK: - Controls
