@@ -192,9 +192,12 @@ struct CobaltDotsSkin: View {
                 }
                 .buttonStyle(StickerPressStyle())
                 .rotationEffect(.degrees(preset.stickerRotation))
+                // Selected sticker "pops" a little.
+                .scaleEffect(isSelected ? 1.06 : 1)
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.55), value: player.preset)
     }
 }
 

@@ -174,6 +174,7 @@ struct CodeRainSkin: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
+        .animation(.easeOut(duration: 0.12), value: player.preset)
     }
 }
 

@@ -90,15 +90,7 @@ struct PixelDesktopSkin: View {
                 Text(player.preset.map { PixelPresetGroup.label(for: $0).uppercased() } ?? "NORMAL")
             }
             .font(.vt323(20))
-            // CSS `white-space: nowrap; overflow: hidden`: the line must not widen the window.
-            Color.clear
-                .frame(height: 26)
-                .overlay(alignment: .leading) {
-                    Text(marqueeText)
-                        .font(.vt323(26))
-                        .fixedSize()
-                }
-                .clipped()
+            PixelMarquee(text: marqueeText, isScrolling: player.isPlaying)
             PixelEQGrid(bands: player.bands, isActive: player.isPlaying)
         }
         .foregroundStyle(PixelPalette.lcdText)

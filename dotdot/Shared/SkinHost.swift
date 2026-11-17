@@ -12,10 +12,18 @@ struct SkinHost: View {
     @AppStorage(PlayerSkin.storageKey) private var skin: PlayerSkin = .pixelDesktop
 
     var body: some View {
-        switch skin {
-        case .pixelDesktop: PixelDesktopSkin()
-        case .cobaltDots: CobaltDotsSkin()
-        case .codeRain: CodeRainSkin()
+        ZStack {
+            Group {
+                switch skin {
+                case .pixelDesktop: PixelDesktopSkin()
+                case .cobaltDots: CobaltDotsSkin()
+                case .codeRain: CodeRainSkin()
+                }
+            }
+            .id(skin)
+            .transition(.opacity)
         }
+        .animation(.easeInOut(duration: 0.35), value: skin)
+        .onChange(of: skin) { Haptics.shared.play(.press) }
     }
 }

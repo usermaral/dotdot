@@ -23,6 +23,8 @@ final class AudioEngine {
     }
 
     var onTrackFinished: (() -> Void)?
+    /// Called when the engine changed playback state on its own (e.g. output device switch).
+    var onStateChange: (() -> Void)?
 
     private(set) var preset: AudioPreset?
     private(set) var isPlaying = false
@@ -47,6 +49,8 @@ final class AudioEngine {
     private var segmentStartFrame: AVAudioFramePosition = 0
     private var isSegmentScheduled = false
     private var pausedTime: TimeInterval = 0
+    /// Last valid render position; used when the engine stops under us and render time is gone.
+    private var lastKnownTime: TimeInterval = 0
     private var scheduleGeneration = 0
     private var modulationTask: Task<Void, Never>?
 
@@ -80,6 +84,14 @@ final class AudioEngine {
         }
 
         apply(preset: nil)
+
+        // The engine stops itself when the output changes (headphones, AirPods, sample rate).
+        NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated { self.handleConfigurationChange() }
+        }
     }
 
     /// Master output volume, 0...1.
@@ -102,12 +114,14 @@ final class AudioEngine {
 
     /// Position in the source file (independent of varispeed rate).
     var currentTime: TimeInterval {
-        guard let file, isPlaying,
-              let nodeTime = player.lastRenderTime,
-              let playerTime = player.playerTime(forNodeTime: nodeTime) else { return pausedTime }
+        guard let file, isPlaying else { return pausedTime }
+        guard let nodeTime = player.lastRenderTime,
+              let playerTime = player.playerTime(forNodeTime: nodeTime) else { return lastKnownTime }
         let start = Double(segmentStartFrame) / file.processingFormat.sampleRate
         let elapsed = Double(playerTime.sampleTime) / playerTime.sampleRate
-        return min(max(start + elapsed, 0), duration)
+        let time = min(max(start + elapsed, 0), duration)
+        lastKnownTime = time
+        return time
     }
 
     // MARK: - Transport
@@ -119,6 +133,7 @@ final class AudioEngine {
         engine.connect(player, to: inputMixer, format: newFile.processingFormat)
         file = newFile
         pausedTime = 0
+        lastKnownTime = 0
         try startEngineIfNeeded()
         schedule(from: 0)
     }
@@ -141,12 +156,20 @@ final class AudioEngine {
         isPlaying = false
     }
 
+    /// Pause for an audio session interruption: the system may stop the engine,
+    /// so drop the scheduled segment and resume from the saved position later.
+    func suspend() {
+        pause()
+        stopPlayer()
+    }
+
     func seek(to time: TimeInterval) {
         guard file != nil else { return }
         let wasPlaying = isPlaying
         let target = min(max(time, 0), duration)
         stopPlayer()
         pausedTime = target
+        lastKnownTime = target
         schedule(from: frame(for: target))
         if wasPlaying {
             player.play()
@@ -227,6 +250,28 @@ final class AudioEngine {
             Task { @MainActor in self.segmentFinished(generation: generation) }
         }
         isSegmentScheduled = true
+    }
+
+    private func handleConfigurationChange() {
+        let wasPlaying = isPlaying
+        let resumeAt = currentTime
+        stopPlayer()
+        fxPlayer.stop()
+        pausedTime = resumeAt
+        lastKnownTime = resumeAt
+        guard file != nil else { return }
+        do {
+            try startEngineIfNeeded()
+            schedule(from: frame(for: resumeAt))
+            if wasPlaying {
+                player.play()
+                isPlaying = true
+                startFx()
+            }
+        } catch {
+            print("Engine restart failed: \(error)")
+        }
+        onStateChange?()
     }
 
     private func segmentFinished(generation: Int) {

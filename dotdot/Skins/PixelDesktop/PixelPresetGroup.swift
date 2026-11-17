@@ -20,6 +20,7 @@ struct PixelPresetGroup: View {
                 radio(for: preset)
             }
         }
+        .animation(.easeOut(duration: 0.12), value: player.preset)
         .padding(EdgeInsets(top: 12, leading: 10, bottom: 8, trailing: 10))
         .win98Bevel(.etched)
         .overlay(alignment: .topLeading) {

@@ -31,11 +31,14 @@ final class PlayerModel {
 
     @ObservationIgnored private let engine: AudioEngine
     @ObservationIgnored private var displayTask: Task<Void, Never>?
+    @ObservationIgnored private var resumeAfterInterruption = false
 
     init() {
         Self.configureAudioSession()
         engine = AudioEngine()
         engine.onTrackFinished = { [weak self] in self?.trackFinished() }
+        engine.onStateChange = { [weak self] in self?.engineStateChanged() }
+        observeAudioSession()
         tracks = TrackLibrary.loadTracks()
     }
 
@@ -173,6 +176,50 @@ final class PlayerModel {
         let isSilent = smoothed.allSatisfy { $0 < 0.002 }
         bands = isSilent && !isPlaying ? [Float](repeating: 0, count: Self.bandCount) : smoothed
         return isPlaying || !isSilent
+    }
+
+    // MARK: - Audio session events
+
+    private func observeAudioSession() {
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+        center.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] note in
+            let type = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt)
+                .flatMap(AVAudioSession.InterruptionType.init(rawValue:))
+            let options = AVAudioSession.InterruptionOptions(
+                rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
+            guard let self, let type else { return }
+            MainActor.assumeIsolated { self.handleInterruption(type, shouldResume: options.contains(.shouldResume)) }
+        }
+        center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] note in
+            let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
+                .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+            guard let self, reason == .oldDeviceUnavailable else { return }
+            // Headphones unplugged / AirPods out: pause instead of blasting the speaker.
+            MainActor.assumeIsolated { self.pause() }
+        }
+    }
+
+    /// Calls, Siri, alarms: pause, then resume only if we were playing and the system allows it.
+    private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
+        switch type {
+        case .began:
+            resumeAfterInterruption = isPlaying
+            engine.suspend()
+            syncState()
+        case .ended:
+            guard resumeAfterInterruption, shouldResume else { return }
+            resumeAfterInterruption = false
+            try? AVAudioSession.sharedInstance().setActive(true)
+            play()
+        @unknown default:
+            break
+        }
+    }
+
+    private func engineStateChanged() {
+        syncState()
+        if isPlaying { startDisplayLoop() }
     }
 
     private static func bitrate(of track: Track, duration: TimeInterval) -> Int? {
