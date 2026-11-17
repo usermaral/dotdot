@@ -40,6 +40,7 @@ final class PlayerModel {
         engine.onStateChange = { [weak self] in self?.engineStateChanged() }
         observeAudioSession()
         tracks = TrackLibrary.loadTracks()
+        Task { await repairLibrary() }
     }
 
     var progress: Double {
@@ -53,16 +54,20 @@ final class PlayerModel {
 
     // MARK: - Library
 
+    /// Copies picked files into the library and starts playing the first of them
+    /// ("Open music" should open it, not silently append it).
     func importFiles(_ urls: [URL]) async {
+        var opened: Track?
         for url in urls {
             do {
-                let track = try await Task.detached { try TrackLibrary.importFile(at: url) }.value
+                let track = try await TrackLibrary.importFile(at: url) // copies + repairs off the main actor
                 if !tracks.contains(track) { tracks.append(track) }
-                if currentTrack == nil { load(track, autoplay: false) }
+                if opened == nil { opened = track }
             } catch {
-                errorMessage = "Import failed: \(error.localizedDescription)"
+                errorMessage = error.localizedDescription
             }
         }
+        if let opened { select(opened) }
     }
 
     func select(_ track: Track) {
@@ -129,13 +134,41 @@ final class PlayerModel {
     private func load(_ track: Track, autoplay: Bool) {
         do {
             try engine.load(url: track.url)
-            currentTrack = track
-            syncState()
-            bitrateKbps = Self.bitrate(of: track, duration: duration)
-            if autoplay { play() }
+            didLoad(track, autoplay: autoplay)
         } catch {
-            errorMessage = "Cannot open \(track.title): \(error.localizedDescription)"
+            // Imported before repair existed, or damaged later: try to re-encode once.
+            Task { await repairAndLoad(track, autoplay: autoplay) }
         }
+    }
+
+    /// Re-checks every library file once per launch and re-encodes broken ones
+    /// (e.g. imported before the import-time check existed).
+    private func repairLibrary() async {
+        for track in tracks {
+            guard let url = try? await TrackLibrary.ensurePlayable(track.url), url != track.url,
+                  let index = tracks.firstIndex(of: track) else { continue }
+            let fixed = Track(url: url)
+            tracks[index] = fixed
+            if currentTrack == track { load(fixed, autoplay: isPlaying) }
+        }
+    }
+
+    private func repairAndLoad(_ track: Track, autoplay: Bool) async {
+        do {
+            let fixed = Track(url: try await TrackLibrary.ensurePlayable(track.url))
+            if let index = tracks.firstIndex(of: track) { tracks[index] = fixed }
+            try engine.load(url: fixed.url)
+            didLoad(fixed, autoplay: autoplay)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func didLoad(_ track: Track, autoplay: Bool) {
+        currentTrack = track
+        syncState()
+        bitrateKbps = Self.bitrate(of: track, duration: duration)
+        if autoplay { play() }
     }
 
     private func trackFinished() {

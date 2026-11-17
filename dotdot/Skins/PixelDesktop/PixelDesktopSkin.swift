@@ -70,9 +70,7 @@ struct PixelDesktopSkin: View {
     /// The skin's single menu (skins, music, debug), top right like in every skin.
     /// Sits where the mockup's caption buttons were, in the same raised style.
     private var menuButton: some View {
-        Menu {
-            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-        } label: {
+        SkinMenuButton(isImporting: $isImporting, isShowingDebug: $isShowingDebug) {
             Text("Menu ▾")
                 .font(.pixelify(12, semibold: true))
                 .foregroundStyle(.black)
@@ -82,8 +80,6 @@ struct PixelDesktopSkin: View {
                 .frame(height: 30) // whole title bar height is tappable
                 .contentShape(Rectangle())
         }
-        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
-        .accessibilityLabel("Menu: skins and music")
     }
 
     // MARK: - LCD

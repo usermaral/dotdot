@@ -59,9 +59,14 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
   Use `Font.pixelify(_:semibold:)` / `Font.vt323(_:)`; add new fonts the same way.
 - Shared Win98 pieces (bevels, palette) live in `Skins/PixelDesktop/`; cross-skin helpers
   (`Haptics`, `SkinMenuItems` + `.skinChrome`, `FlowLayout`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
-- Every skin has exactly one menu (`SkinMenuItems`: skins, open music, debug), always in the
+- Every skin has exactly one menu (`SkinMenuItems`: tracks, skins, open music, debug), always in the
   top-right corner, styled per skin: pixelDesktop = "Menu ▾" caption button in the title bar
   (taskbar "dotdot" is decorative), codeRain = "> menu", cobaltDots = "•••". No duplicate entry points.
+  Always use `SkinMenuButton` (isolated view, label stored as a value): a `Menu` inside a skin body
+  that re-renders at 60 fps makes menu taps unreliable.
+- Imported files go through `TrackLibrary.ensurePlayable`: if AVAudioFile can't read a file, or reads a
+  length far shorter than AVAsset's duration (mislabeled/odd MP3s), it is re-encoded to .m4a.
+  The library is re-checked once per launch.
 - `design/` is git-ignored (mockups are kept locally only).
 - Simulator check of a specific skin: `xcrun simctl launch <device> com.maral.dotdot -selectedSkin codeRain`
   (launch argument overrides @AppStorage). Caveat: while launched this way the skin is pinned and

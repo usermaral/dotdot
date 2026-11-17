@@ -7,14 +7,24 @@
 
 import SwiftUI
 
-/// Actions every skin's menu offers: open music, switch skin, debug panel.
-/// Each skin decides what opens it (taskbar button, logo, now-playing card).
+/// What every skin's menu offers: tracks, skins, open music, debug panel.
+/// Each skin shows it from its own top-right button.
 struct SkinMenuItems: View {
+    @Environment(PlayerModel.self) private var player
     @AppStorage(PlayerSkin.storageKey) private var skin: PlayerSkin = .pixelDesktop
     @Binding var isImporting: Bool
     @Binding var isShowingDebug: Bool
 
     var body: some View {
+        // The skins have no track list of their own, so the library lives here.
+        if !player.tracks.isEmpty {
+            Section("Tracks") {
+                Picker("Track", selection: trackSelection) {
+                    ForEach(player.tracks) { Text($0.title).tag(Optional($0)) }
+                }
+                .pickerStyle(.inline)
+            }
+        }
         // Skins listed directly in the menu (checkmark on the current one), not in a submenu.
         Section("Skin") {
             Picker("Skin", selection: $skin) {
@@ -26,6 +36,45 @@ struct SkinMenuItems: View {
             Button("Open music…", systemImage: "folder") { isImporting = true }
             Button("Debug panel", systemImage: "ladybug") { isShowingDebug = true }
         }
+    }
+
+    /// Picking a track plays it (picking the current one again restarts nothing).
+    private var trackSelection: Binding<Track?> {
+        Binding(
+            get: { player.currentTrack },
+            set: { track in
+                guard let track, track != player.currentTrack else { return }
+                player.select(track)
+            }
+        )
+    }
+}
+
+/// The skin's menu button. A separate view on purpose: skin bodies re-render ~60×/s
+/// (spectrum, time), and a `Menu` rebuilt that often makes UIKit refresh the open menu
+/// constantly, so taps on its items get lost. This view only depends on its own inputs.
+struct SkinMenuButton<Label: View>: View {
+    @Binding var isImporting: Bool
+    @Binding var isShowingDebug: Bool
+    var accessibilityLabel = "Menu: tracks, skins and music"
+    /// Stored as a value, not a closure: closures can't be compared, which would make
+    /// SwiftUI treat this view as changed on every parent render and defeat the point.
+    let label: Label
+
+    init(isImporting: Binding<Bool>, isShowingDebug: Binding<Bool>, @ViewBuilder label: () -> Label) {
+        _isImporting = isImporting
+        _isShowingDebug = isShowingDebug
+        self.label = label()
+    }
+
+    var body: some View {
+        Menu {
+            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        } label: {
+            label
+        }
+        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 

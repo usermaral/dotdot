@@ -78,9 +78,7 @@ struct CobaltDotsSkin: View {
 
     /// Visible way into the dotdot menu: a round "•••" button in the sticker style.
     private var menuButton: some View {
-        Menu {
-            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
-        } label: {
+        SkinMenuButton(isImporting: $isImporting, isShowingDebug: $isShowingDebug) {
             HStack(spacing: 3) {
                 ForEach(0..<3, id: \.self) { _ in
                     Circle().fill(CobaltPalette.cobalt).frame(width: 4, height: 4)
@@ -92,8 +90,6 @@ struct CobaltDotsSkin: View {
             .frame(width: 44, height: 44) // touch target
             .contentShape(Rectangle())
         }
-        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
-        .accessibilityLabel("Menu: skins and music")
     }
 
     private var trackInfo: some View {
