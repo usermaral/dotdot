@@ -28,6 +28,12 @@ final class PlayerModel {
     /// 16 spectrum bands, 0...1, smoothed, updated ~60 times/sec while playing.
     private(set) var bands = [Float](repeating: 0, count: PlayerModel.bandCount)
     var errorMessage: String?
+    /// Track waiting for a delete confirmation (shown by the skin chrome).
+    var trackPendingDeletion: Track? {
+        didSet { if trackPendingDeletion == nil { pendingDeletionIsUnplayable = false } }
+    }
+    /// True when the confirmation was triggered by a file that can't be played.
+    private(set) var pendingDeletionIsUnplayable = false
 
     @ObservationIgnored private let engine: AudioEngine
     @ObservationIgnored private var displayTask: Task<Void, Never>?
@@ -68,6 +74,34 @@ final class PlayerModel {
             }
         }
         if let opened { select(opened) }
+    }
+
+    /// Asks the user to confirm deleting a track.
+    func requestDeletion(of track: Track) {
+        trackPendingDeletion = track
+    }
+
+    /// Deletes a track from the library. If it is the current one, playback moves on
+    /// to the next track (playing only if it was playing).
+    func delete(_ track: Track) {
+        guard let index = tracks.firstIndex(of: track) else { return }
+        let wasPlaying = isPlaying
+        var following: Track?
+        if track == currentTrack {
+            if tracks.count > 1 { following = tracks[(index + 1) % tracks.count] }
+            engine.unload()
+            currentTrack = nil
+            bitrateKbps = nil
+            syncState()
+        }
+        do {
+            try TrackLibrary.delete(track)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+        tracks.remove(at: index)
+        if let following { load(following, autoplay: wasPlaying) }
     }
 
     func select(_ track: Track) {
@@ -160,7 +194,9 @@ final class PlayerModel {
             try engine.load(url: fixed.url)
             didLoad(fixed, autoplay: autoplay)
         } catch {
-            errorMessage = error.localizedDescription
+            // Damaged file: offer to delete it instead of showing an error every time it comes up.
+            trackPendingDeletion = track
+            pendingDeletionIsUnplayable = true
         }
     }
 

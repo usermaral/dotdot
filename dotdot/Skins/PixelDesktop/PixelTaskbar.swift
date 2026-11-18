@@ -23,6 +23,7 @@ struct PixelTaskbar: View {
                 .win98Bevel(.sunken, fill: PixelPalette.field)
             TimelineView(.everyMinute) { context in
                 Text(Self.clockFormatter.string(from: context.date))
+                    .font(.vt323(19)) // clear digits; Pixelify's small "5" reads like "S"
                     .padding(.horizontal, 8)
                     .frame(height: 30)
                     .win98Bevel(.etched, width: 1)

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// What every skin's menu offers: tracks, skins, open music.
+/// What every skin's menu offers: tracks, skins, open music, delete a track.
 /// Each skin shows it from its own top-right button.
 struct SkinMenuItems: View {
     @Environment(PlayerModel.self) private var player
@@ -37,6 +37,17 @@ struct SkinMenuItems: View {
         // Haptic when the menu opens. A tap gesture on the Menu's label would compete
         // with UIKit's menu recognizer and swallow taps, so it lives here instead.
         .onAppear { Haptics.shared.play(.tap) }
+        // Own section and a submenu, so it is never hit by accident. Lists every track,
+        // including ones that fail to load (they never become the current track).
+        if !player.tracks.isEmpty {
+            Section {
+                Menu("Delete track", systemImage: "trash") {
+                    ForEach(player.tracks) { track in
+                        Button(track.title, role: .destructive) { player.requestDeletion(of: track) }
+                    }
+                }
+            }
+        }
     }
 
     /// Picking a track plays it (picking the current one again restarts nothing).
@@ -76,13 +87,32 @@ struct SkinMenuButton<Label: View>: View {
     }
 }
 
-/// File importer that backs `SkinMenuItems`.
+/// File importer and delete confirmation that back `SkinMenuItems`.
 private struct SkinChrome: ViewModifier {
+    @Environment(PlayerModel.self) private var player
     @Binding var isImporting: Bool
 
     func body(content: Content) -> some View {
         content
             .musicImporter(isPresented: $isImporting)
+            .confirmationDialog(
+                player.pendingDeletionIsUnplayable
+                    ? "“\(player.trackPendingDeletion?.title ?? "")” can't be played"
+                    : "Delete “\(player.trackPendingDeletion?.title ?? "")”?",
+                isPresented: deletionBinding,
+                titleVisibility: .visible,
+                presenting: player.trackPendingDeletion
+            ) { track in
+                Button("Delete", role: .destructive) { player.delete(track) }
+            } message: { _ in
+                Text(player.pendingDeletionIsUnplayable
+                     ? "The file is damaged or not a supported audio file. Delete it from dotdot? The original in Files is not affected."
+                     : "The file will be removed from dotdot. The original in Files is not affected.")
+            }
+    }
+
+    private var deletionBinding: Binding<Bool> {
+        Binding(get: { player.trackPendingDeletion != nil }, set: { if !$0 { player.trackPendingDeletion = nil } })
     }
 }
 

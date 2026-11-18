@@ -8,10 +8,11 @@
 import SwiftUI
 
 nonisolated enum PlayerSkin: String, CaseIterable, Identifiable, Sendable {
+    // Order here is the order in the skin menu.
     case pixelDesktop
-    case cobaltDots
     case codeRain
     case asciiPrint
+    case cobaltDots
 
     static let storageKey = "selectedSkin"
 

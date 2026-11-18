@@ -113,7 +113,8 @@ struct PixelDesktopSkin: View {
             statusCell(player.bitrateKbps.map { "\($0) kbps" } ?? "-- kbps")
                 .frame(width: 90, alignment: .leading)
         }
-        .font(.pixelify(13))
+        // VT323, not Pixelify: Pixelify's small "5" and "8" read like "S".
+        .font(.vt323(18))
         .frame(height: 24)
     }
 

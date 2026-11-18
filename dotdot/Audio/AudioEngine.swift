@@ -138,6 +138,15 @@ final class AudioEngine {
         schedule(from: 0)
     }
 
+    /// Stops playback and releases the file (e.g. before deleting it).
+    func unload() {
+        stopPlayer()
+        fxPlayer.stop()
+        file = nil
+        pausedTime = 0
+        lastKnownTime = 0
+    }
+
     func play() throws {
         guard file != nil else { throw EngineError.noTrackLoaded }
         try startEngineIfNeeded()

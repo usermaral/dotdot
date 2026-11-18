@@ -39,6 +39,11 @@ nonisolated enum TrackLibrary {
             .map(Track.init(url:))
     }
 
+    /// Removes a track's file from the library.
+    static func delete(_ track: Track) throws {
+        try FileManager.default.removeItem(at: track.url)
+    }
+
     /// Copies a picked file into the library and makes sure the engine can read it.
     /// Unreadable copies are removed so they don't clutter the track list.
     static func importFile(at source: URL) async throws -> Track {
