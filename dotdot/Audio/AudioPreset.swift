@@ -11,7 +11,7 @@ import Foundation
 nonisolated enum AudioPreset: String, CaseIterable, Identifiable, Sendable {
     case slowed
     case tape
-    case vinyl
+    case bassBoost
     case spedUp
     case eightD
     case reverb
@@ -22,7 +22,7 @@ nonisolated enum AudioPreset: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .slowed: "slowed"
         case .tape: "tape"
-        case .vinyl: "vinyl"
+        case .bassBoost: "bass boost"
         case .spedUp: "sped up"
         case .eightD: "8D"
         case .reverb: "reverb"

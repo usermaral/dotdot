@@ -13,7 +13,7 @@ import SwiftUI
 /// mids make the rows drift sideways, highs scatter stray glyphs across the paper.
 struct AsciiArtView: View {
     let trackURL: URL?
-    let bands: [Float]
+    @Environment(PlayerModel.self) private var player
     let isPlaying: Bool
 
     /// Cover luminance; nil = draw the vinyl record.
@@ -29,10 +29,11 @@ struct AsciiArtView: View {
         TimelineView(.animation(minimumInterval: isPlaying ? 1 / 30 : 1 / 12)) { timeline in
             Canvas { context, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate
-                motion.update(time: t, bands: bands, isPlaying: isPlaying)
+                motion.update(time: t, bands: player.liveBands, isPlaying: isPlaying)
                 draw(in: &context, size: size, time: t)
             }
         }
+        .drawingGroup() // rasterize on the GPU (Metal), not the CPU
         .task(id: trackURL) {
             var loaded: [Float]?
             if let trackURL { loaded = await CoverArt.coverLuminance(for: trackURL) }
@@ -49,9 +50,11 @@ struct AsciiArtView: View {
         let rows = Int(size.height / cellHeight)
         guard rows > 0 else { return }
         let ramp = Self.ramp
-        let glyphs = ramp.map {
-            context.resolve(Text($0).font(.spaceMono(cellWidth * 1.62, bold: true)).foregroundStyle(AsciiPalette.ink))
-        }
+        let font = Font.spaceMono(cellWidth * 1.62, bold: true)
+        // One Text per row instead of one per glyph (~22 draws a frame instead of ~1100).
+        // Space Mono is monospaced; scale each row so its advance matches the cell grid exactly.
+        let sample = context.resolve(Text(String(repeating: "M", count: columns)).font(font))
+        let rowScale = size.width / max(sample.measure(in: CGSize(width: CGFloat.infinity, height: CGFloat.infinity)).width, 1)
         // The cover is square, the grid is not: show a centered square-pixel crop of it.
         let gridAspect = Double(CGFloat(rows) * cellHeight / size.width)
         let vSpan = min(gridAspect, 1), vStart = (1 - vSpan) / 2
@@ -71,6 +74,8 @@ struct AsciiArtView: View {
         for y in 0..<rows {
             // Mids: each row drifts sideways, like a misfed printer.
             let drift = sin(t * 2.3 + Double(y) * 0.5) * motion.mid * Double(cellWidth) * 2.2
+            var line = ""
+            line.reserveCapacity(columns)
             for x in 0..<columns {
                 let u = (Double(x) + 0.5) / Double(columns), v = vStart + (Double(y) + 0.5) / Double(rows) * vSpan
                 let d = hypot(u * 2 - 1, v * 2 - 1)
@@ -96,11 +101,13 @@ struct AsciiArtView: View {
                     level = Double(20 + CoverArt.hash(y, x, glitchFrame) % 40) // treble sparkle
                 }
                 let index = min(max(Int(level.rounded()), 0), ramp.count - 1)
-                guard index > 0 else { continue }
-                let point = CGPoint(x: (CGFloat(x) + 0.5) * cellWidth + drift,
-                                    y: originY + (CGFloat(y) + 0.5) * cellHeight)
-                context.draw(glyphs[index], at: point)
+                line += ramp[index] // index 0 is a space
             }
+            let text = context.resolve(Text(line).font(font).foregroundStyle(AsciiPalette.ink))
+            var row = context
+            row.translateBy(x: drift, y: originY + (CGFloat(y) + 0.5) * cellHeight)
+            row.scaleBy(x: rowScale, y: 1)
+            row.draw(text, at: .zero, anchor: .leading)
         }
     }
 }

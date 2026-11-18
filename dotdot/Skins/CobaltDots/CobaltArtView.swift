@@ -12,7 +12,7 @@ import SwiftUI
 /// and drift around the card; a ring sweeps out while playing, every kick sends a yellow
 /// ripple, mids sway the grid and highs throw yellow sparkles. No cover art.
 struct CobaltArtView: View {
-    let bands: [Float]
+    @Environment(PlayerModel.self) private var player
     let isPlaying: Bool
 
     @State private var motion = ArtMotion()
@@ -28,13 +28,15 @@ struct CobaltArtView: View {
     ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: isPlaying ? 1 / 60 : 1 / 20)) { timeline in
+        // 30 fps is plenty for dots and halves the drawing cost.
+        TimelineView(.animation(minimumInterval: isPlaying ? 1 / 30 : 1 / 20)) { timeline in
             Canvas { context, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate
-                motion.update(time: t, bands: bands, isPlaying: isPlaying)
+                motion.update(time: t, bands: player.liveBands, isPlaying: isPlaying)
                 drawDots(in: &context, size: size, time: t)
             }
         }
+        .drawingGroup() // rasterize on the GPU (Metal), not the CPU
         .padding(12)
         .background(CobaltPalette.panel, in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(CobaltPalette.ink.opacity(0.55), lineWidth: 1.5))

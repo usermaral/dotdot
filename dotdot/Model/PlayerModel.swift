@@ -5,8 +5,10 @@
 //  Created by Maral on 17.11.2026.
 //
 
+import os
 import AVFoundation
 import Observation
+import UIKit
 
 /// Single source of truth for every skin. Skins only read this state and call its methods.
 @Observable
@@ -27,6 +29,9 @@ final class PlayerModel {
     private(set) var bitrateKbps: Int?
     /// 16 spectrum bands, 0...1, smoothed, updated ~60 times/sec while playing.
     private(set) var bands = [Float](repeating: 0, count: PlayerModel.bandCount)
+    /// Same values, but not observed: visualizers that already redraw on their own
+    /// TimelineView read this inside their Canvas, so new bands don't trigger extra redraws.
+    @ObservationIgnored private(set) var liveBands = [Float](repeating: 0, count: PlayerModel.bandCount)
     var errorMessage: String?
     /// Track waiting for a delete confirmation (shown by the skin chrome).
     var trackPendingDeletion: Track? {
@@ -38,6 +43,10 @@ final class PlayerModel {
     @ObservationIgnored private let engine: AudioEngine
     @ObservationIgnored private var displayTask: Task<Void, Never>?
     @ObservationIgnored private var resumeAfterInterruption = false
+    // Diagnostics: detect audio stalls (render time stops) and main-thread hangs.
+    @ObservationIgnored private var lastTickAt: CFTimeInterval = 0
+    @ObservationIgnored private var stallCheckAt: CFTimeInterval = 0
+    @ObservationIgnored private var stallCheckAudioTime: TimeInterval = 0
 
     init() {
         Self.configureAudioSession()
@@ -45,6 +54,8 @@ final class PlayerModel {
         engine.onTrackFinished = { [weak self] in self?.trackFinished() }
         engine.onStateChange = { [weak self] in self?.engineStateChanged() }
         observeAudioSession()
+        observeAppLifecycle()
+        NowPlaying.connect(to: self)
         tracks = TrackLibrary.loadTracks()
         Task { await repairLibrary() }
     }
@@ -219,6 +230,7 @@ final class PlayerModel {
         isPlaying = engine.isPlaying
         currentTime = engine.currentTime
         duration = engine.duration
+        NowPlaying.update(title: currentTrack?.title, duration: duration, elapsed: currentTime, isPlaying: isPlaying)
     }
 
     /// ~60 fps loop: playback time + smoothed spectrum. Stops itself once paused and silent.
@@ -234,7 +246,11 @@ final class PlayerModel {
 
     /// Returns false when there is nothing left to animate.
     private func tick() -> Bool {
-        currentTime = engine.currentTime
+        checkForStalls()
+        // Time drives labels and progress bars only: ~10 updates/s is plenty and keeps
+        // skin bodies from re-rendering every frame. (Bands go to the visualizers at full rate.)
+        let time = engine.currentTime
+        if abs(time - currentTime) >= 0.1 { currentTime = time }
         let target = engine.spectrum
         var smoothed = bands
         for i in smoothed.indices {
@@ -244,10 +260,64 @@ final class PlayerModel {
         }
         let isSilent = smoothed.allSatisfy { $0 < 0.002 }
         bands = isSilent && !isPlaying ? [Float](repeating: 0, count: Self.bandCount) : smoothed
+        liveBands = bands
         return isPlaying || !isSilent
     }
 
+    /// Logs when the main thread was blocked (>100 ms between ticks) or when playback time
+    /// stopped advancing while playing (the audio output itself stalled).
+    private func checkForStalls() {
+        let now = CACurrentMediaTime()
+        if lastTickAt > 0, now - lastTickAt > 0.1 {
+            Diag.ui.error("main thread blocked for \(Int((now - self.lastTickAt) * 1000)) ms")
+        }
+        lastTickAt = now
+        guard isPlaying else {
+            stallCheckAt = 0
+            return
+        }
+        let audioTime = engine.currentTime
+        if stallCheckAt == 0 {
+            stallCheckAt = now
+            stallCheckAudioTime = audioTime
+        } else if now - stallCheckAt >= 0.25 {
+            let wall = now - stallCheckAt
+            let played = audioTime - stallCheckAudioTime
+            // Slowed plays at 0.8x, so anything under ~0.5x of wall time means a stall.
+            if played >= 0, played < wall * 0.5 {
+                Diag.audio.error("audio stalled: \(Int(played * 1000)) ms played in \(Int(wall * 1000)) ms")
+            }
+            stallCheckAt = now
+            stallCheckAudioTime = audioTime
+        }
+    }
+
     // MARK: - Audio session events
+
+    /// Background: audio keeps playing (UIBackgroundModes = audio), but the 60 fps display
+    /// loop stops, since nothing is on screen. Quit from the app switcher: fade out instead of
+    /// cutting the sound mid-buffer.
+    private func observeAppLifecycle() {
+        let center = NotificationCenter.default
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.displayTask?.cancel()
+                self.displayTask = nil
+            }
+        }
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                self.syncState()
+                if self.isPlaying { self.startDisplayLoop() }
+            }
+        }
+        center.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            MainActor.assumeIsolated { self.engine.fadeOutAndStop() }
+        }
+    }
 
     private func observeAudioSession() {
         let center = NotificationCenter.default
@@ -263,6 +333,7 @@ final class PlayerModel {
         center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] note in
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
+            Diag.audio.notice("route change, reason \(reason?.rawValue ?? 0)")
             guard let self, reason == .oldDeviceUnavailable else { return }
             // Headphones unplugged / AirPods out: pause instead of blasting the speaker.
             MainActor.assumeIsolated { self.pause() }
@@ -273,10 +344,12 @@ final class PlayerModel {
     private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
         switch type {
         case .began:
+            Diag.audio.notice("interruption began")
             resumeAfterInterruption = isPlaying
             engine.suspend()
             syncState()
         case .ended:
+            Diag.audio.notice("interruption ended (resume: \(shouldResume))")
             guard resumeAfterInterruption, shouldResume else { return }
             resumeAfterInterruption = false
             try? AVAudioSession.sharedInstance().setActive(true)
@@ -301,7 +374,11 @@ final class PlayerModel {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default)
+            // Bigger output buffer (~40 ms): more slack when the UI spikes (menus, skin
+            // transitions), fewer dropouts. Latency doesn't matter for music playback.
+            try session.setPreferredIOBufferDuration(0.04)
             try session.setActive(true)
+            Diag.audio.notice("session: \(Int(session.sampleRate)) Hz, IO buffer \(Int(session.ioBufferDuration * 1000)) ms")
         } catch {
             print("Audio session setup failed: \(error)")
         }

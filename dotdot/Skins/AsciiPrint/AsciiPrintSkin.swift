@@ -66,7 +66,7 @@ struct AsciiPrintSkin: View {
             VStack(spacing: 12) {
                 receiptHeader
                 rule
-                AsciiArtView(trackURL: player.currentTrack?.url, bands: player.bands, isPlaying: player.isPlaying)
+                AsciiArtView(trackURL: player.currentTrack?.url, isPlaying: player.isPlaying)
                     .frame(maxWidth: .infinity, minHeight: 80, maxHeight: 220)
                     .layoutPriority(1)
                 rule

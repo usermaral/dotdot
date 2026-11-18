@@ -5,6 +5,7 @@
 //  Created by Maral on 17.11.2026.
 //
 
+import os
 import SwiftUI
 
 /// Shows the selected skin. Skins never own state; they all read the shared `PlayerModel`.
@@ -27,6 +28,9 @@ struct SkinHost: View {
             .transition(.opacity)
         }
         .animation(.easeInOut(duration: 0.35), value: skin)
-        .onChange(of: skin) { Haptics.shared.play(.press) }
+        .onChange(of: skin) {
+            Diag.ui.notice("skin -> \(skin.rawValue, privacy: .public)")
+            Haptics.shared.play(.press)
+        }
     }
 }

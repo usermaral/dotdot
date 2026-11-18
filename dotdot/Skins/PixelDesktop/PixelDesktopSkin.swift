@@ -92,7 +92,7 @@ struct PixelDesktopSkin: View {
             }
             .font(.vt323(20))
             PixelMarquee(text: marqueeText, isScrolling: player.isPlaying)
-            PixelEQGrid(bands: player.bands, isActive: player.isPlaying)
+            LiveBands { PixelEQGrid(bands: $0, isActive: player.isPlaying) }
         }
         .foregroundStyle(PixelPalette.lcdText)
         .padding(10)

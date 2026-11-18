@@ -18,7 +18,7 @@ struct CobaltDotsSkin: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            CobaltArtView(bands: player.bands, isPlaying: player.isPlaying)
+            CobaltArtView(isPlaying: player.isPlaying)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: 342, maxHeight: 342)
                 .overlay(alignment: .topTrailing) { star }
@@ -64,11 +64,13 @@ struct CobaltDotsSkin: View {
     // MARK: - Star sticker (pinned to the art's top-right corner)
 
     private var star: some View {
-        StarSticker()
-            .stroke(CobaltPalette.accent, style: StrokeStyle(lineWidth: 1.5 * 48 / 24, lineJoin: .round))
-            .frame(width: 48, height: 48)
-            .rotationEffect(.degrees(14))
-            .scaleEffect(1 + 0.12 * Double(player.bands.first ?? 0))
+        LiveBands { bands in
+            StarSticker()
+                .stroke(CobaltPalette.accent, style: StrokeStyle(lineWidth: 1.5 * 48 / 24, lineJoin: .round))
+                .frame(width: 48, height: 48)
+                .rotationEffect(.degrees(14))
+                .scaleEffect(1 + 0.12 * Double(bands.first ?? 0))
+        }
             .offset(x: 10, y: -18)
             .accessibilityHidden(true)
             .allowsHitTesting(false)
@@ -157,9 +159,11 @@ struct CobaltDotsSkin: View {
                     .frame(width: 104, height: 104)
                     // Outer ring; breathes slightly with the bass.
                     .overlay(
-                        Circle()
-                            .strokeBorder(CobaltPalette.ink.opacity(0.4), lineWidth: 1.5)
-                            .scaleEffect(1 + 0.08 * Double(player.bands.first ?? 0))
+                        LiveBands { bands in
+                            Circle()
+                                .strokeBorder(CobaltPalette.ink.opacity(0.4), lineWidth: 1.5)
+                                .scaleEffect(1 + 0.08 * Double(bands.first ?? 0))
+                        }
                     )
                     .contentShape(Circle())
             }

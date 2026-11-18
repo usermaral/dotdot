@@ -5,12 +5,13 @@
 //  Created by Maral on 17.11.2026.
 //
 
+import os
 import AVFoundation
 
 /// Owns the AVAudioEngine graph:
 ///
 ///     player -> inputMixer -> varispeed -> reverb -> eq -> spatialMixer -> environment -> mainMixer
-///     fxPlayer (hiss / crackle loops) ------------------------------------------------> mainMixer
+///     fxPlayer (tape hiss loop) ------------------------------------------------------> mainMixer
 ///
 /// `inputMixer` converts any file format (mono, 44.1k, 48k...) to the stereo graph format.
 /// `spatialMixer` exists because only AVAudioMixing nodes can set the 3D source mode
@@ -28,6 +29,9 @@ final class AudioEngine {
 
     private(set) var preset: AudioPreset?
     private(set) var isPlaying = false
+    /// Bumped on every preset change, so an older crossfade stops when a newer one starts.
+    private var presetGeneration = 0
+    private var isCrossfading = false
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -42,7 +46,6 @@ final class AudioEngine {
     private let graphFormat: AVAudioFormat
     private let analyzer: SpectrumAnalyzer
     private let hissBuffer: AVAudioPCMBuffer?
-    private let crackleBuffer: AVAudioPCMBuffer?
     private var fxBuffer: AVAudioPCMBuffer?
 
     private var file: AVAudioFile?
@@ -53,12 +56,12 @@ final class AudioEngine {
     private var lastKnownTime: TimeInterval = 0
     private var scheduleGeneration = 0
     private lazy var modulator = EffectModulator(varispeed: varispeed, spatialMixer: spatialMixer)
+    private lazy var streamer = FileStreamer(player: player)
 
     init() {
         let outputRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
         graphFormat = AVAudioFormat(standardFormatWithSampleRate: outputRate > 0 ? outputRate : 48_000, channels: 2)!
         hissBuffer = NoiseBuffers.hiss(format: graphFormat)
-        crackleBuffer = NoiseBuffers.crackle(format: graphFormat)
         analyzer = SpectrumAnalyzer(sampleRate: graphFormat.sampleRate, bandCount: PlayerModel.bandCount)
 
         [player, fxPlayer, inputMixer, varispeed, reverb, eq, spatialMixer, environment].forEach(engine.attach)
@@ -77,7 +80,7 @@ final class AudioEngine {
         environment.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
         environment.distanceAttenuationParameters.referenceDistance = 5 // no level drop inside the orbit
 
-        // Spectrum is measured after all music effects, before the hiss/crackle layer.
+        // Spectrum is measured after all music effects, before the hiss layer.
         let analyzer = analyzer
         environment.installTap(onBus: 0, bufferSize: 1024, format: graphFormat) { @Sendable buffer, _ in
             analyzer.process(buffer)
@@ -138,6 +141,22 @@ final class AudioEngine {
         schedule(from: 0)
     }
 
+    /// Quick fade, then stop: used when the app is about to be killed, so the sound
+    /// doesn't cut off with a click. Blocks for ~120 ms, which is fine at that point.
+    func fadeOutAndStop() {
+        guard isPlaying else { return }
+        let mixer = engine.mainMixerNode
+        let start = mixer.outputVolume
+        for step in stride(from: 1, through: 12, by: 1) {
+            mixer.outputVolume = start * Float(12 - step) / 12
+            usleep(10_000)
+        }
+        player.pause()
+        fxPlayer.stop()
+        engine.pause()
+        mixer.outputVolume = start
+    }
+
     /// Stops playback and releases the file (e.g. before deleting it).
     func unload() {
         stopPlayer()
@@ -149,6 +168,11 @@ final class AudioEngine {
 
     func play() throws {
         guard file != nil else { throw EngineError.noTrackLoaded }
+        // Safety net: never start playing with the music path left muted.
+        if !isCrossfading {
+            spatialMixer.outputVolume = 1
+            fxPlayer.volume = 1
+        }
         try startEngineIfNeeded()
         if pausedTime >= duration { pausedTime = 0 }
         if !isSegmentScheduled { schedule(from: frame(for: pausedTime)) }
@@ -188,8 +212,48 @@ final class AudioEngine {
 
     // MARK: - Presets
 
+    /// Switches presets without clicks: while playing, the music dips for ~50 ms, the
+    /// effects change in silence, then it comes back over ~90 ms. Rate jumps, filters
+    /// switching on and the reverb reset would otherwise click.
     func apply(preset: AudioPreset?) {
+        Diag.audio.notice("preset -> \(preset?.rawValue ?? "none", privacy: .public)")
         self.preset = preset
+        presetGeneration += 1 // cancels any crossfade still running
+        guard isPlaying else {
+            isCrossfading = false
+            spatialMixer.outputVolume = 1
+            fxPlayer.volume = 1
+            applyEffects(for: preset)
+            return
+        }
+        let generation = presetGeneration
+        isCrossfading = true
+        Task {
+            guard await rampMusicVolume(to: 0, seconds: 0.05, generation: generation) else { return }
+            applyEffects(for: preset)
+            if await rampMusicVolume(to: 1, seconds: 0.09, generation: generation) {
+                isCrossfading = false
+            }
+        }
+    }
+
+    /// Steps the post-effects volume (music + hiss) toward `target`. Returns false if a newer
+    /// preset change took over, which then finishes the ramp itself.
+    @discardableResult
+    private func rampMusicVolume(to target: Float, seconds: Double, generation: Int) async -> Bool {
+        let steps = max(Int(seconds / 0.005), 1)
+        let start = spatialMixer.outputVolume
+        for step in 1...steps {
+            guard generation == presetGeneration else { return false }
+            let value = start + (target - start) * Float(step) / Float(steps)
+            spatialMixer.outputVolume = value
+            fxPlayer.volume = value
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return generation == presetGeneration
+    }
+
+    private func applyEffects(for preset: AudioPreset?) {
         modulator.stop()
         resetEffects()
 
@@ -203,9 +267,8 @@ final class AudioEngine {
             setBandPass(highPass: 120, lowPass: 5_000)
             fxBuffer = hissBuffer
             modulator.start(.tape)
-        case .vinyl:
-            setBandPass(highPass: 40, lowPass: 9_000)
-            fxBuffer = crackleBuffer
+        case .bassBoost:
+            setBassBoost()
         case .eightD:
             spatialMixer.sourceMode = .pointSource
             modulator.start(.orbit)
@@ -233,6 +296,7 @@ final class AudioEngine {
 
     private func stopPlayer() {
         scheduleGeneration += 1 // invalidates the completion of the stopped segment
+        streamer.cancel()
         player.stop()
         isSegmentScheduled = false
         isPlaying = false
@@ -247,13 +311,8 @@ final class AudioEngine {
 
         scheduleGeneration += 1
         let generation = scheduleGeneration
-        player.scheduleSegment(
-            file,
-            startingFrame: start,
-            frameCount: AVAudioFrameCount(remaining),
-            at: nil,
-            completionCallbackType: .dataPlayedBack
-        ) { @Sendable [weak self] _ in
+        // Decoded chunks queued ahead, not an on-demand file segment: survives UI load spikes.
+        streamer.start(file: file, from: start) { [weak self] in
             guard let self else { return }
             Task { @MainActor in self.segmentFinished(generation: generation) }
         }
@@ -261,6 +320,7 @@ final class AudioEngine {
     }
 
     private func handleConfigurationChange() {
+        Diag.audio.error("engine configuration change, restarting (was playing: \(self.isPlaying))")
         let wasPlaying = isPlaying
         let resumeAt = currentTime
         stopPlayer()
@@ -295,6 +355,7 @@ final class AudioEngine {
         reverb.wetDryMix = 0
         reverb.bypass = true
         eq.bypass = true
+        eq.globalGain = 0
         spatialMixer.sourceMode = .bypass
         spatialMixer.position = AVAudio3DPoint(x: 0, y: 0, z: 0)
         fxPlayer.stop()
@@ -305,6 +366,24 @@ final class AudioEngine {
         reverb.loadFactoryPreset(preset)
         reverb.wetDryMix = wetDryMix
         reverb.bypass = false
+    }
+
+    /// "Bass boosted": +10 dB low shelf under ~110 Hz plus a +4 dB bump at 55 Hz for punch.
+    /// Overall gain drops 6 dB so loud masters don't clip.
+    private func setBassBoost() {
+        let shelf = eq.bands[0]
+        shelf.filterType = .lowShelf
+        shelf.frequency = 110
+        shelf.gain = 10
+        shelf.bypass = false
+        let punch = eq.bands[1]
+        punch.filterType = .parametric
+        punch.frequency = 55
+        punch.bandwidth = 1
+        punch.gain = 4
+        punch.bypass = false
+        eq.globalGain = -6
+        eq.bypass = false
     }
 
     private func setBandPass(highPass: Float, lowPass: Float) {

@@ -55,7 +55,7 @@ final class RainSimulation {
 }
 
 struct CodeRainField: View {
-    let bands: [Float]
+    @Environment(PlayerModel.self) private var player
 
     @State private var simulation = RainSimulation()
 
@@ -71,10 +71,11 @@ struct CodeRainField: View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { timeline in
             Canvas { context, size in
                 let rows = max(Int(ceil(size.height / rowHeight)), 1)
-                simulation.advance(to: timeline.date, bands: bands, rows: rows)
+                simulation.advance(to: timeline.date, bands: player.liveBands, rows: rows)
                 draw(in: &context, size: size, rows: rows)
             }
         }
+        .drawingGroup() // rasterize on the GPU (Metal), not the CPU
         .accessibilityHidden(true)
     }
 

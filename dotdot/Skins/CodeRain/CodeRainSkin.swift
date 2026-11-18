@@ -32,7 +32,7 @@ struct CodeRainSkin: View {
     // MARK: - Rain + now playing card
 
     private var rainArea: some View {
-        CodeRainField(bands: player.bands)
+        CodeRainField()
             .clipped()
             .overlay(alignment: .bottom) {
                 nowPlayingCard
