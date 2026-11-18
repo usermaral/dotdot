@@ -131,9 +131,11 @@ struct AsciiPrintSkin: View {
     private func leaderRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(label)
+                .fixedSize() // the label never truncates; a long value does
             Line()
                 .stroke(AsciiPalette.leader, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [0, 3]))
                 .frame(height: 1.5)
+                .frame(minWidth: 16)
                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 3 }
             Text(value)
                 .font(.spaceMono(12, bold: true))
