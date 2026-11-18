@@ -333,7 +333,6 @@ final class PlayerModel {
         center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] note in
             let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt)
                 .flatMap(AVAudioSession.RouteChangeReason.init(rawValue:))
-            Diag.audio.notice("route change, reason \(reason?.rawValue ?? 0)")
             guard let self, reason == .oldDeviceUnavailable else { return }
             // Headphones unplugged / AirPods out: pause instead of blasting the speaker.
             MainActor.assumeIsolated { self.pause() }
@@ -344,12 +343,10 @@ final class PlayerModel {
     private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
         switch type {
         case .began:
-            Diag.audio.notice("interruption began")
             resumeAfterInterruption = isPlaying
             engine.suspend()
             syncState()
         case .ended:
-            Diag.audio.notice("interruption ended (resume: \(shouldResume))")
             guard resumeAfterInterruption, shouldResume else { return }
             resumeAfterInterruption = false
             try? AVAudioSession.sharedInstance().setActive(true)
@@ -378,7 +375,6 @@ final class PlayerModel {
             // transitions), fewer dropouts. Latency doesn't matter for music playback.
             try session.setPreferredIOBufferDuration(0.04)
             try session.setActive(true)
-            Diag.audio.notice("session: \(Int(session.sampleRate)) Hz, IO buffer \(Int(session.ioBufferDuration * 1000)) ms")
         } catch {
             print("Audio session setup failed: \(error)")
         }

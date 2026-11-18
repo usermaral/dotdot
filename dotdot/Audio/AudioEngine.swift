@@ -216,7 +216,6 @@ final class AudioEngine {
     /// effects change in silence, then it comes back over ~90 ms. Rate jumps, filters
     /// switching on and the reverb reset would otherwise click.
     func apply(preset: AudioPreset?) {
-        Diag.audio.notice("preset -> \(preset?.rawValue ?? "none", privacy: .public)")
         self.preset = preset
         presetGeneration += 1 // cancels any crossfade still running
         guard isPlaying else {
