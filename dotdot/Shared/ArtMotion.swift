@@ -16,6 +16,10 @@ final class ArtMotion {
     private(set) var mid = 0.0
     private(set) var treble = 0.0
 
+    /// Record rotation in radians: 33⅓ rpm while playing, holds still when paused.
+    private(set) var spin = 0.0
+    private var lastTime: Double?
+
     private var bassAverage = 0.0
     private var lastKick = 0.0
     private var ripples: [(start: Double, strength: Double)] = []
@@ -23,6 +27,8 @@ final class ArtMotion {
     static let rippleLife = 1.3
 
     func update(time t: Double, bands: [Float], isPlaying: Bool) {
+        if isPlaying, let lastTime { spin += min(t - lastTime, 0.1) * 2 * .pi * (100.0 / 3 / 60) }
+        lastTime = t
         func average(_ range: Range<Int>) -> Double {
             let slice = bands.indices.clamped(to: range)
             guard !slice.isEmpty else { return 0 }

@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-/// The track's cover (or the mascot) typed out as classic ASCII art: a long glyph ramp,
+/// The track's cover (or a spinning vinyl record) typed out as classic ASCII art: a long glyph ramp,
 /// printed positive (dark cover areas become dense letters, light areas stay paper).
 /// Bass swells the ink and zooms in, kicks carve a ring that glitches the characters,
 /// mids make the rows drift sideways, highs scatter stray glyphs across the paper.
@@ -16,7 +16,8 @@ struct AsciiArtView: View {
     let bands: [Float]
     let isPlaying: Bool
 
-    @State private var luminance = CoverArt.mascot
+    /// Cover luminance; nil = draw the vinyl record.
+    @State private var cover: [Float]?
     @State private var motion = ArtMotion()
 
     /// Light to dense; on paper, dense glyphs read as dark.
@@ -33,9 +34,9 @@ struct AsciiArtView: View {
             }
         }
         .task(id: trackURL) {
-            var cover: [Float]?
-            if let trackURL { cover = await CoverArt.coverLuminance(for: trackURL) }
-            luminance = cover ?? CoverArt.mascot
+            var loaded: [Float]?
+            if let trackURL { loaded = await CoverArt.coverLuminance(for: trackURL) }
+            cover = loaded
         }
         .accessibilityElement()
         .accessibilityLabel("Album art typed out in ASCII characters, moving with the music")
@@ -62,6 +63,9 @@ struct AsciiArtView: View {
         let punch = max(motion.bass - 0.18, 0)
         let zoom = 1 + punch * 0.2
         let gain = min(0.8 + punch * 0.5, 1.05)
+        // The record is round, so it fits the grid's shorter side instead of being cropped.
+        let gridHeight = Double(CGFloat(rows) * cellHeight)
+        let recordSize = min(Double(size.width), gridHeight)
         let scatter = Int(max(motion.treble - 0.12, 0) * 40) // per-mille of cells
 
         for y in 0..<rows {
@@ -72,7 +76,15 @@ struct AsciiArtView: View {
                 let d = hypot(u * 2 - 1, v * 2 - 1)
                 let wave = motion.ripple(at: d, time: t)
                 // Positive print: dark cover pixels become dense glyphs.
-                let ink = 1 - CoverArt.sample(luminance, 0.5 + (u - 0.5) / zoom, 0.5 + (v - 0.5) / zoom)
+                let lum: Double
+                if let cover {
+                    lum = CoverArt.sample(cover, 0.5 + (u - 0.5) / zoom, 0.5 + (v - 0.5) / zoom)
+                } else {
+                    let ru = ((Double(x) + 0.5) * Double(cellWidth) - Double(size.width) / 2) / recordSize
+                    let rv = ((Double(y) + 0.5) * Double(cellHeight) - gridHeight / 2) / recordSize
+                    lum = CoverArt.vinyl(0.5 + ru / zoom, 0.5 + rv / zoom, spin: motion.spin)
+                }
+                let ink = 1 - lum
                 var level = ink * top * gain
                 // Static dither so flat areas print as a mix of neighbouring glyphs, not "kkkk".
                 if ink > 0.08 { level += Double(CoverArt.hash(x, y, 7) % 13) - 6 }

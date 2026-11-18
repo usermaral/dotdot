@@ -9,46 +9,30 @@ import AVFoundation
 import CoreGraphics
 import UIKit
 
-/// Source image for the art-driven skins (Cobalt halftone, ASCII Print), as a square
-/// luminance grid (0...1, row-major, top row first): the track's embedded cover,
-/// or the dotdot mascot when there is none.
+/// Source image for ASCII Print, as a square luminance grid (0...1, row-major, top row
+/// first): the track's embedded cover, or a procedural vinyl record when there is none.
 nonisolated enum CoverArt {
     static let resolution = 80
 
-    /// Original fallback character: a round "dot" face. Drawn once.
-    static let mascot: [Float] = drawGrid { ctx, n in
-        let s = CGFloat(n)
-        // CG space is y-up here.
-        ctx.setFillColor(gray: 0, alpha: 1)
-        ctx.fill(CGRect(x: 0, y: 0, width: s, height: s))
-
-        ctx.setFillColor(gray: 1, alpha: 1)
-        ctx.fillEllipse(in: CGRect(x: s * 0.14, y: s * 0.10, width: s * 0.72, height: s * 0.72)) // head
-        ctx.fillEllipse(in: CGRect(x: s * 0.20, y: s * 0.70, width: s * 0.16, height: s * 0.20)) // ear
-        ctx.fillEllipse(in: CGRect(x: s * 0.64, y: s * 0.70, width: s * 0.16, height: s * 0.20)) // ear
-
-        ctx.setFillColor(gray: 0, alpha: 1)
-        ctx.fillEllipse(in: CGRect(x: s * 0.33, y: s * 0.48, width: s * 0.09, height: s * 0.12)) // eyes
-        ctx.fillEllipse(in: CGRect(x: s * 0.58, y: s * 0.48, width: s * 0.09, height: s * 0.12))
-        ctx.setFillColor(gray: 1, alpha: 1)
-        ctx.fillEllipse(in: CGRect(x: s * 0.355, y: s * 0.55, width: s * 0.03, height: s * 0.03)) // eye shine
-        ctx.fillEllipse(in: CGRect(x: s * 0.605, y: s * 0.55, width: s * 0.03, height: s * 0.03))
-
-        ctx.setFillColor(gray: 0.55, alpha: 1)
-        ctx.fillEllipse(in: CGRect(x: s * 0.24, y: s * 0.38, width: s * 0.10, height: s * 0.06)) // blush
-        ctx.fillEllipse(in: CGRect(x: s * 0.66, y: s * 0.38, width: s * 0.10, height: s * 0.06))
-
-        ctx.setStrokeColor(gray: 0, alpha: 1)
-        ctx.setLineWidth(s * 0.035)
-        ctx.setLineCap(.round)
-        ctx.addArc(center: CGPoint(x: s * 0.5, y: s * 0.42), radius: s * 0.08,
-                   startAngle: .pi * 1.15, endAngle: .pi * 1.85, clockwise: false) // smile
-        ctx.strokePath()
-
-        ctx.setFillColor(gray: 0.8, alpha: 1)
-        for (x, y) in [(0.08, 0.86), (0.88, 0.16), (0.90, 0.80), (0.06, 0.24)] { // sparkles
-            ctx.fillEllipse(in: CGRect(x: s * x, y: s * y, width: s * 0.04, height: s * 0.04))
+    /// Fallback when a track has no cover: a vinyl record, drawn procedurally so it stays
+    /// sharp at any size and can spin. `spin` (radians) turns the label; the sheen stays put,
+    /// like light on a real record. Returns luminance 0...1 (paper around it is white).
+    static func vinyl(_ u: Double, _ v: Double, spin: Double) -> Double {
+        let dx = u - 0.5, dy = v - 0.5
+        let r = hypot(dx, dy)
+        let angle = atan2(dy, dx)
+        if r > 0.47 { return 1 }                       // paper
+        if r < 0.018 { return 0 }                      // spindle hole
+        if r < 0.16 {                                  // label, two-tone so the spin shows
+            if r > 0.145 { return 0.5 }
+            return sin(angle + spin) > 0.35 ? 0.62 : 0.95
         }
+        // Black vinyl with fine grooves and two lighter gaps between "tracks".
+        var lum = 0.04 + 0.2 * pow(0.5 + 0.5 * sin(r * 120), 3)
+        if abs(r - 0.29) < 0.008 || abs(r - 0.38) < 0.008 { lum += 0.45 }
+        // Fixed sheen: two opposite soft wedges.
+        lum += 0.6 * pow(max(0, cos(2 * (angle + 0.75))), 10) * (r / 0.47)
+        return min(lum, 1)
     }
 
     /// Embedded cover art of the file, or nil if it has none.
