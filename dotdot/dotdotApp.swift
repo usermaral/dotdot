@@ -19,6 +19,7 @@ struct dotdotApp: App {
         WindowGroup {
             SkinHost()
                 .environment(player)
+                .task { if ProcessInfo.processInfo.arguments.contains("-DBGautoplay") { player.play() } }
         }
     }
 }

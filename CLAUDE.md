@@ -40,9 +40,10 @@ List simulators with `xcrun simctl list devices available`. No test target or li
   - vinyl: looping crackle on a second PlayerNode
   - eightD: mono source orbiting the listener via EnvironmentNode (HRTF)
   - reverb: large hall, wetDryMix ~40
-- Skins: `enum PlayerSkin { pixelDesktop, cobaltDots, codeRain }`.
+- Skins: `enum PlayerSkin { pixelDesktop, cobaltDots, codeRain, asciiPrint }`. Each declares its
+  `colorScheme` (light/dark) so the status bar and menus match its background.
   Each skin is a View that only reads/drives `PlayerModel`. Persist with `@AppStorage`.
-- Folder layout (under `dotdot/`): `Audio/`, `Model/`, `Skins/PixelDesktop/`, `Skins/CobaltDots/`, `Skins/CodeRain/`, `Shared/`
+- Folder layout (under `dotdot/`): `Audio/`, `Model/`, `Skins/PixelDesktop/`, `Skins/CobaltDots/`, `Skins/CodeRain/`, `Skins/AsciiPrint/`, `Shared/`
 
 ## Design (source of truth: `/design`)
 HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
@@ -50,18 +51,28 @@ HTML mockups at 390x844. Copy colors, fonts, sizes, layout and visualizer logic
 - `design/skin-pixel-desktop.html` (MAIN): Win98-style window, black LCD with
   green/yellow/red pixel EQ (16 cols x 10 rows), round beveled control pad,
   radio-button presets, status bar, taskbar. Fonts: Pixelify Sans, VT323.
-- `design/skin-cobalt-dots.html`: white + cobalt #1E36C8, 22x22 halftone dot
-  grid pulsing to bass, sticker doodles, tilted preset tags. Fonts: Yellowtail, Space Mono.
+- `skin-cobalt-v2.html` (current source for cobaltDots; v1 `design/skin-cobalt-dots.html` is superseded):
+  white ink on #2234C6, yellow #FFE76A accents, tilted 28x28 dot card with a star sticker, dot progress,
+  3x2 preset grid. The card (`CobaltArtView`) is a pure music visualizer (no cover art, no characters):
+  the mockup's dot blobs, each tied to a spectrum range (bass, low-mid, mid, treble), swell and drift;
+  a ring sweeps while playing, kicks send yellow ripples, mids sway the grid, highs sparkle.
+- `skin-receipt-v2.html` (source for asciiPrint): white till receipt with zigzag edges on #E9EDF5, navy
+  Space Mono, cover typed out as classic ASCII art (`AsciiArtView`, 50 cols, long ~70-glyph ramp, positive print:
+  dark = dense letters; user preferred this over the mockup's 10-glyph ramp), dotted-leader
+  TRACK/FX/TIME rows, `[====>...]` bar, `[x] preset` checkboxes. Cover loading (`CoverArt`) is used by asciiPrint; audio motion (`ArtMotion`)
+  is shared with cobaltDots in `Shared/`.
+- App icon: `Assets.xcassets/AppIcon.appiconset/AppIcon.png` (+ grayscale `AppIcon-Tinted.png`),
+  flat pixel face + EQ bars in the Pixel LCD palette, rendered at 1024x1024 without alpha.
 - `design/skin-code-rain.html`: black + green hex digital rain, column tail
   length/speed driven by band levels, terminal-style presets. Font: Share Tech Mono.
 - Fonts: Google Fonts .ttf files live in `dotdot/Resources/Fonts/` and are registered at launch by
   `AppFonts.register()` (CTFontManager), not via Info.plist, because the Info.plist is generated.
   Use `Font.pixelify(_:semibold:)` / `Font.vt323(_:)`; add new fonts the same way.
 - Shared Win98 pieces (bevels, palette) live in `Skins/PixelDesktop/`; cross-skin helpers
-  (`Haptics`, `SkinMenuItems` + `.skinChrome`, `FlowLayout`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
-- Every skin has exactly one menu (`SkinMenuItems`: tracks, skins, open music, debug), always in the
+  (`Haptics`, `SkinMenuItems` + `.skinChrome`, `Color(hex:)`, `TimeFormat`) live in `Shared/`.
+- Every skin has exactly one menu (`SkinMenuItems`: tracks, skins, open music), always in the
   top-right corner, styled per skin: pixelDesktop = "Menu ▾" caption button in the title bar
-  (taskbar "dotdot" is decorative), codeRain = "> menu", cobaltDots = "•••". No duplicate entry points.
+  (taskbar "dotdot" is decorative), codeRain = "> menu", cobaltDots = "•••", asciiPrint = "[menu]". No duplicate entry points.
   Always use `SkinMenuButton` (isolated view, label stored as a value): a `Menu` inside a skin body
   that re-renders at 60 fps makes menu taps unreliable.
 - Imported files go through `TrackLibrary.ensurePlayable`: if AVAudioFile can't read a file, or reads a

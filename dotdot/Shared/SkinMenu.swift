@@ -7,13 +7,12 @@
 
 import SwiftUI
 
-/// What every skin's menu offers: tracks, skins, open music, debug panel.
+/// What every skin's menu offers: tracks, skins, open music.
 /// Each skin shows it from its own top-right button.
 struct SkinMenuItems: View {
     @Environment(PlayerModel.self) private var player
     @AppStorage(PlayerSkin.storageKey) private var skin: PlayerSkin = .pixelDesktop
     @Binding var isImporting: Bool
-    @Binding var isShowingDebug: Bool
 
     var body: some View {
         // The skins have no track list of their own, so the library lives here.
@@ -34,8 +33,10 @@ struct SkinMenuItems: View {
         }
         Section {
             Button("Open music…", systemImage: "folder") { isImporting = true }
-            Button("Debug panel", systemImage: "ladybug") { isShowingDebug = true }
         }
+        // Haptic when the menu opens. A tap gesture on the Menu's label would compete
+        // with UIKit's menu recognizer and swallow taps, so it lives here instead.
+        .onAppear { Haptics.shared.play(.tap) }
     }
 
     /// Picking a track plays it (picking the current one again restarts nothing).
@@ -55,43 +56,38 @@ struct SkinMenuItems: View {
 /// constantly, so taps on its items get lost. This view only depends on its own inputs.
 struct SkinMenuButton<Label: View>: View {
     @Binding var isImporting: Bool
-    @Binding var isShowingDebug: Bool
     var accessibilityLabel = "Menu: tracks, skins and music"
     /// Stored as a value, not a closure: closures can't be compared, which would make
     /// SwiftUI treat this view as changed on every parent render and defeat the point.
     let label: Label
 
-    init(isImporting: Binding<Bool>, isShowingDebug: Binding<Bool>, @ViewBuilder label: () -> Label) {
+    init(isImporting: Binding<Bool>, @ViewBuilder label: () -> Label) {
         _isImporting = isImporting
-        _isShowingDebug = isShowingDebug
         self.label = label()
     }
 
     var body: some View {
         Menu {
-            SkinMenuItems(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+            SkinMenuItems(isImporting: $isImporting)
         } label: {
             label
         }
-        .simultaneousGesture(TapGesture().onEnded { Haptics.shared.play(.tap) })
         .accessibilityLabel(accessibilityLabel)
     }
 }
 
-/// File importer + debug sheet that back `SkinMenuItems`.
+/// File importer that backs `SkinMenuItems`.
 private struct SkinChrome: ViewModifier {
     @Binding var isImporting: Bool
-    @Binding var isShowingDebug: Bool
 
     func body(content: Content) -> some View {
         content
-            .musicImporter(isPresented: $isImporting, showsErrors: !isShowingDebug)
-            .sheet(isPresented: $isShowingDebug) { PlayerDebugView() }
+            .musicImporter(isPresented: $isImporting)
     }
 }
 
 extension View {
-    func skinChrome(isImporting: Binding<Bool>, isShowingDebug: Binding<Bool>) -> some View {
-        modifier(SkinChrome(isImporting: isImporting, isShowingDebug: isShowingDebug))
+    func skinChrome(isImporting: Binding<Bool>) -> some View {
+        modifier(SkinChrome(isImporting: isImporting))
     }
 }

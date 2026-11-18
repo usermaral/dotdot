@@ -11,7 +11,6 @@ import SwiftUI
 struct PixelDesktopSkin: View {
     @Environment(PlayerModel.self) private var player
     @State private var isImporting = false
-    @State private var isShowingDebug = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +25,7 @@ struct PixelDesktopSkin: View {
         }
         .background(PixelPalette.desktop.ignoresSafeArea())
         .foregroundStyle(.black)
-        .skinChrome(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        .skinChrome(isImporting: $isImporting)
     }
 
     // MARK: - Window
@@ -67,10 +66,10 @@ struct PixelDesktopSkin: View {
         .background(LinearGradient(colors: [PixelPalette.titleStart, PixelPalette.titleEnd], startPoint: .leading, endPoint: .trailing))
     }
 
-    /// The skin's single menu (skins, music, debug), top right like in every skin.
+    /// The skin's single menu (tracks, skins, music), top right like in every skin.
     /// Sits where the mockup's caption buttons were, in the same raised style.
     private var menuButton: some View {
-        SkinMenuButton(isImporting: $isImporting, isShowingDebug: $isShowingDebug) {
+        SkinMenuButton(isImporting: $isImporting) {
             Text("Menu ▾")
                 .font(.pixelify(12, semibold: true))
                 .foregroundStyle(.black)

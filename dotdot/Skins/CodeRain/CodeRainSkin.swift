@@ -8,11 +8,10 @@
 import SwiftUI
 
 /// Built from design/skin-code-rain.html: hex rain on top, terminal controls below.
-/// The "> menu" button (top right) opens the dotdot menu (skins, music, debug).
+/// The "> menu" button (top right) opens the dotdot menu (tracks, skins, music).
 struct CodeRainSkin: View {
     @Environment(PlayerModel.self) private var player
     @State private var isImporting = false
-    @State private var isShowingDebug = false
     @State private var scrubProgress: Double?
 
     private let barLength = 24
@@ -20,14 +19,14 @@ struct CodeRainSkin: View {
     var body: some View {
         VStack(spacing: 0) {
             rainArea
-                .frame(minHeight: 220, maxHeight: 426)
+                .frame(minHeight: 220, maxHeight: .infinity)
                 .layoutPriority(1)
             controls
         }
         .font(.shareTechMono(14))
         .foregroundStyle(CodeRainPalette.green)
         .background(CodeRainPalette.background.ignoresSafeArea())
-        .skinChrome(isImporting: $isImporting, isShowingDebug: $isShowingDebug)
+        .skinChrome(isImporting: $isImporting)
     }
 
     // MARK: - Rain + now playing card
@@ -47,9 +46,9 @@ struct CodeRainSkin: View {
             }
     }
 
-    /// Visible way into the dotdot menu (skins, music, debug).
+    /// Visible way into the dotdot menu (tracks, skins, music).
     private var menuButton: some View {
-        SkinMenuButton(isImporting: $isImporting, isShowingDebug: $isShowingDebug) {
+        SkinMenuButton(isImporting: $isImporting) {
             Text("> menu")
                 .font(.shareTechMono(13))
                 .foregroundStyle(CodeRainPalette.green)

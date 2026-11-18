@@ -18,8 +18,11 @@ struct SkinHost: View {
                 case .pixelDesktop: PixelDesktopSkin()
                 case .cobaltDots: CobaltDotsSkin()
                 case .codeRain: CodeRainSkin()
+                case .asciiPrint: AsciiPrintSkin()
                 }
             }
+            // Status bar and menus match the skin's background, whatever the system theme.
+            .preferredColorScheme(skin.colorScheme)
             .id(skin)
             .transition(.opacity)
         }

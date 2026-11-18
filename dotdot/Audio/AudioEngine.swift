@@ -52,7 +52,7 @@ final class AudioEngine {
     /// Last valid render position; used when the engine stops under us and render time is gone.
     private var lastKnownTime: TimeInterval = 0
     private var scheduleGeneration = 0
-    private var modulationTask: Task<Void, Never>?
+    private lazy var modulator = EffectModulator(varispeed: varispeed, spatialMixer: spatialMixer)
 
     init() {
         let outputRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
@@ -181,8 +181,7 @@ final class AudioEngine {
 
     func apply(preset: AudioPreset?) {
         self.preset = preset
-        modulationTask?.cancel()
-        modulationTask = nil
+        modulator.stop()
         resetEffects()
 
         switch preset {
@@ -194,13 +193,13 @@ final class AudioEngine {
         case .tape:
             setBandPass(highPass: 120, lowPass: 5_000)
             fxBuffer = hissBuffer
-            startModulation()
+            modulator.start(.tape)
         case .vinyl:
             setBandPass(highPass: 40, lowPass: 9_000)
             fxBuffer = crackleBuffer
         case .eightD:
             spatialMixer.sourceMode = .pointSource
-            startModulation()
+            modulator.start(.orbit)
         case .reverb:
             setReverb(.largeHall, wetDryMix: 40)
         case nil:
@@ -317,38 +316,5 @@ final class AudioEngine {
         fxPlayer.stop()
         fxPlayer.scheduleBuffer(fxBuffer, at: nil, options: .loops)
         fxPlayer.play()
-    }
-
-    /// Time-based modulation: tape wow/flutter and the 8D orbit.
-    private func startModulation() {
-        let clock = ContinuousClock()
-        let start = clock.now
-        modulationTask = Task { [weak self] in
-            while !Task.isCancelled {
-                let t = (clock.now - start) / .seconds(1)
-                self?.modulate(at: t)
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
-    }
-
-    private func modulate(at t: Double) {
-        switch preset {
-        case .tape:
-            // ±0.5% wow (slow) with a touch of flutter (fast).
-            let wow = 0.004 * sin(2 * .pi * 0.55 * t)
-            let flutter = 0.001 * sin(2 * .pi * 6.0 * t)
-            varispeed.rate = Float(1 + wow + flutter)
-        case .eightD:
-            let angle = 2 * .pi * t / 8 // one orbit per 8 s
-            let radius = 2.0
-            spatialMixer.position = AVAudio3DPoint(
-                x: Float(radius * sin(angle)),
-                y: 0,
-                z: Float(-radius * cos(angle))
-            )
-        default:
-            break
-        }
     }
 }

@@ -8,10 +8,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// File picker for local audio, shared by all skins and the debug screen.
+/// File picker for local audio, shared by all skins.
 private struct MusicImporter: ViewModifier {
     @Binding var isPresented: Bool
-    let showsErrors: Bool
     @Environment(PlayerModel.self) private var player
 
     func body(content: Content) -> some View {
@@ -30,13 +29,12 @@ private struct MusicImporter: ViewModifier {
     }
 
     private var errorBinding: Binding<Bool> {
-        Binding(get: { showsErrors && player.errorMessage != nil }, set: { if !$0 { player.errorMessage = nil } })
+        Binding(get: { player.errorMessage != nil }, set: { if !$0 { player.errorMessage = nil } })
     }
 }
 
 extension View {
-    /// Set `showsErrors` to false while another sheet with its own importer is on top.
-    func musicImporter(isPresented: Binding<Bool>, showsErrors: Bool = true) -> some View {
-        modifier(MusicImporter(isPresented: isPresented, showsErrors: showsErrors))
+    func musicImporter(isPresented: Binding<Bool>) -> some View {
+        modifier(MusicImporter(isPresented: isPresented))
     }
 }

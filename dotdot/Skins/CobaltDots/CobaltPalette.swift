@@ -7,27 +7,20 @@
 
 import SwiftUI
 
-/// Colors from design/skin-cobalt-dots.html.
+/// Cobalt v2 look: white ink on cobalt, yellow accents (design: skin-cobalt-v2.html).
 enum CobaltPalette {
-    static let background = Color.white
-    static let cobalt = Color(hex: 0x1E36C8)
-    static let softCobalt = Color(hex: 0x3F55D6)
-    static let gridBackground = Color(hex: 0xEEF1FF)
+    static let background = Color(hex: 0x2234C6)
+    /// Deeper panel behind the dot art.
+    static let panel = Color(hex: 0x1A29A8)
+    /// Primary ink.
+    static let ink = Color.white
+    /// Secondary ink: subtitle, time labels, unselected presets.
+    static let soft = Color(hex: 0xE2E7FF)
+    /// Accent: star sticker, active FX, wave crest, treble sparkles.
+    static let accent = Color(hex: 0xFFE76A)
 }
 
 extension AudioPreset {
-    /// Sticker label: "SLOWED", "SPED UP", "8D".
+    /// Preset label: "SLOWED", "SPED UP", "8D".
     var stickerLabel: String { title.uppercased() }
-
-    /// Sticker tilt in degrees. First five come from the mockup; reverb (not in the mockup) gets +1.
-    var stickerRotation: Double {
-        switch self {
-        case .slowed: -3
-        case .tape: 2
-        case .vinyl: -1
-        case .spedUp: 3
-        case .eightD: -2
-        case .reverb: 1
-        }
-    }
 }

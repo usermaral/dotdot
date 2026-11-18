@@ -30,25 +30,6 @@ struct StarSticker: Shape {
     }
 }
 
-/// `M12 21s-7-4.4-9.3-9A5 5 0 0 1 12 6a5 5 0 0 1 9.3 6c-2.3 4.6-9.3 9-9.3 9z`
-/// (SVG upscales both r=5 arcs to half the chord, i.e. semicircles of r ≈ 5.53.)
-struct HeartSticker: Shape {
-    func path(in rect: CGRect) -> Path {
-        scaled(rect) { p in
-            let radius = hypot(9.3, 6) / 2
-            let tilt = atan2(3.0, 4.65) * 180 / .pi // ≈ 32.8°
-            p.move(to: CGPoint(x: 12, y: 21))
-            p.addCurve(to: CGPoint(x: 2.7, y: 12), control1: CGPoint(x: 12, y: 21), control2: CGPoint(x: 5, y: 16.6))
-            p.addArc(center: CGPoint(x: 7.35, y: 9), radius: radius,
-                     startAngle: .degrees(180 - tilt), endAngle: .degrees(360 - tilt), clockwise: false)
-            p.addArc(center: CGPoint(x: 16.65, y: 9), radius: radius,
-                     startAngle: .degrees(180 + tilt), endAngle: .degrees(360 + tilt), clockwise: false)
-            p.addCurve(to: CGPoint(x: 12, y: 21), control1: CGPoint(x: 19, y: 16.6), control2: CGPoint(x: 12, y: 21))
-            p.closeSubpath()
-        }
-    }
-}
-
 enum TransportIcon {
     case previous, next, play, pause
 }
